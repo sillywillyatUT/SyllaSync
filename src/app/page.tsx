@@ -1,6 +1,7 @@
 import Footer from "@/components/footer";
 import Hero from "@/components/hero";
 import Navbar from "@/components/navbar";
+import ScrollAnimation from "@/components/scroll-animation";
 import {
   Accordion,
   AccordionContent,
@@ -35,15 +36,17 @@ export default async function Home() {
       <Hero />
 
       {/* How It Works Section */}
-      <section id="how-it-works" className="py-24 bg-white">
+      <section id="how-it-works" className="py-24 bg-white calendar-bg">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold mb-4">How It Works</h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              Transform your syllabus into a smart calendar in just three simple
-              steps.
-            </p>
-          </div>
+          <ScrollAnimation>
+            <div className="text-center mb-16">
+              <h2 className="text-3xl font-bold mb-4">How It Works</h2>
+              <p className="text-gray-600 max-w-2xl mx-auto">
+                Transform your syllabus into a smart calendar in just three
+                simple steps.
+              </p>
+            </div>
+          </ScrollAnimation>
 
           <div className="grid md:grid-cols-3 gap-8">
             {[
@@ -69,38 +72,39 @@ export default async function Home() {
                 step: "3",
               },
             ].map((step, index) => (
-              <div
-                key={index}
-                className="relative p-8 bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100 hover:border-orange-200 group"
-              >
-                <div className="absolute -top-4 -left-4 w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center font-bold text-sm group-hover:bg-orange-600 transition-colors">
-                  {step.step}
+              <ScrollAnimation key={index} delay={index * 200}>
+                <div className="relative p-8 bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100 hover:border-orange-200 group transform hover:-translate-y-2 hover:scale-105">
+                  <div className="absolute -top-4 -left-4 w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center font-bold text-sm group-hover:bg-orange-600 transition-all duration-300 group-hover:scale-110">
+                    {step.step}
+                  </div>
+                  <div className="text-orange-500 mb-4 group-hover:text-orange-600 transition-all duration-300 group-hover:scale-110">
+                    {step.icon}
+                  </div>
+                  <h3 className="text-xl font-semibold mb-3">{step.title}</h3>
+                  <p className="text-gray-600 leading-relaxed">
+                    {step.description}
+                  </p>
                 </div>
-                <div className="text-orange-500 mb-4 group-hover:text-orange-600 transition-colors">
-                  {step.icon}
-                </div>
-                <h3 className="text-xl font-semibold mb-3">{step.title}</h3>
-                <p className="text-gray-600 leading-relaxed">
-                  {step.description}
-                </p>
-              </div>
+              </ScrollAnimation>
             ))}
           </div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-24 bg-gray-50">
+      <section id="features" className="py-24 bg-gray-50 calendar-bg">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold mb-4">
-              Why Students Love SyllabusSync
-            </h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              Never miss another deadline with our intelligent syllabus
-              processing.
-            </p>
-          </div>
+          <ScrollAnimation>
+            <div className="text-center mb-16">
+              <h2 className="text-3xl font-bold mb-4">
+                Why Students Love SyllabusSync
+              </h2>
+              <p className="text-gray-600 max-w-2xl mx-auto">
+                Never miss another deadline with our intelligent syllabus
+                processing.
+              </p>
+            </div>
+          </ScrollAnimation>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
@@ -139,280 +143,305 @@ export default async function Home() {
                 description: "All your academic deadlines in one place",
               },
             ].map((feature, index) => (
-              <div
-                key={index}
-                className="p-6 bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-50 hover:border-orange-100 group"
-              >
-                <div className="text-orange-500 mb-4 group-hover:text-orange-600 transition-colors">
-                  {feature.icon}
+              <ScrollAnimation key={index} delay={index * 100}>
+                <div className="p-6 bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-50 hover:border-orange-100 group transform hover:-translate-y-1 hover:scale-105">
+                  <div className="text-orange-500 mb-4 group-hover:text-orange-600 transition-all duration-300 group-hover:scale-110">
+                    {feature.icon}
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2">
+                    {feature.title}
+                  </h3>
+                  <p className="text-gray-600">{feature.description}</p>
                 </div>
-                <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
-                <p className="text-gray-600">{feature.description}</p>
-              </div>
+              </ScrollAnimation>
             ))}
           </div>
         </div>
       </section>
 
       {/* Stats Section */}
-      <section className="py-20 bg-gradient-to-r from-orange-500 to-orange-600 text-white">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-3 gap-8 text-center">
-            <div>
-              <div className="text-4xl font-bold mb-2">10,000+</div>
-              <div className="text-orange-100">Syllabi Processed</div>
+      <section className="py-20 bg-gradient-to-r from-orange-500 to-orange-600 text-white relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10">
+          <Calendar className="absolute top-10 left-10 w-16 h-16 animate-float" />
+          <FileText
+            className="absolute bottom-10 right-10 w-12 h-12 animate-float"
+            style={{ animationDelay: "1s" }}
+          />
+        </div>
+        <div className="container mx-auto px-4 relative z-10">
+          <ScrollAnimation>
+            <div className="grid md:grid-cols-3 gap-8 text-center">
+              <div className="transform hover:scale-110 transition-transform duration-300">
+                <div className="text-4xl font-bold mb-2">10,000+</div>
+                <div className="text-orange-100">Syllabi Processed</div>
+              </div>
+              <div className="transform hover:scale-110 transition-transform duration-300">
+                <div className="text-4xl font-bold mb-2">5,000+</div>
+                <div className="text-orange-100">Happy Students</div>
+              </div>
+              <div className="transform hover:scale-110 transition-transform duration-300">
+                <div className="text-4xl font-bold mb-2">99.5%</div>
+                <div className="text-orange-100">Accuracy Rate</div>
+              </div>
             </div>
-            <div>
-              <div className="text-4xl font-bold mb-2">5,000+</div>
-              <div className="text-orange-100">Happy Students</div>
-            </div>
-            <div>
-              <div className="text-4xl font-bold mb-2">99.5%</div>
-              <div className="text-orange-100">Accuracy Rate</div>
-            </div>
-          </div>
+          </ScrollAnimation>
         </div>
       </section>
 
       {/* FAQ Section */}
-      <section id="faq" className="py-24 bg-white">
+      <section id="faq" className="py-24 bg-white calendar-bg">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold mb-4">
-              Frequently Asked Questions
-            </h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              Get answers to common questions about SyllabusSync.
-            </p>
-          </div>
+          <ScrollAnimation>
+            <div className="text-center mb-16">
+              <h2 className="text-3xl font-bold mb-4">
+                Frequently Asked Questions
+              </h2>
+              <p className="text-gray-600 max-w-2xl mx-auto">
+                Get answers to common questions about SyllabusSync.
+              </p>
+            </div>
+          </ScrollAnimation>
 
-          <div className="max-w-3xl mx-auto">
-            <Accordion type="single" collapsible className="w-full">
-              <AccordionItem value="item-1">
-                <AccordionTrigger className="text-left">
-                  What file formats are supported?
-                </AccordionTrigger>
-                <AccordionContent>
-                  We support PDF files, Word documents (.docx), and plain text
-                  files (.txt). PDF is the most commonly used format for syllabi
-                  and works best with our AI extraction technology.
-                </AccordionContent>
-              </AccordionItem>
+          <ScrollAnimation>
+            <div className="max-w-3xl mx-auto">
+              <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value="item-1">
+                  <AccordionTrigger className="text-left">
+                    What file formats are supported?
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    We support PDF files, Word documents (.docx), and plain text
+                    files (.txt). PDF is the most commonly used format for
+                    syllabi and works best with our AI extraction technology.
+                  </AccordionContent>
+                </AccordionItem>
 
-              <AccordionItem value="item-2">
-                <AccordionTrigger className="text-left">
-                  How accurate is the date extraction?
-                </AccordionTrigger>
-                <AccordionContent>
-                  Our AI has a 99.5% accuracy rate in identifying and extracting
-                  important dates from syllabi. You can always review and edit
-                  the extracted dates before exporting to your calendar.
-                </AccordionContent>
-              </AccordionItem>
+                <AccordionItem value="item-2">
+                  <AccordionTrigger className="text-left">
+                    How accurate is the date extraction?
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    Our AI has a 99.5% accuracy rate in identifying and
+                    extracting important dates from syllabi. You can always
+                    review and edit the extracted dates before exporting to your
+                    calendar.
+                  </AccordionContent>
+                </AccordionItem>
 
-              <AccordionItem value="item-3">
-                <AccordionTrigger className="text-left">
-                  Can I export to multiple calendar apps?
-                </AccordionTrigger>
-                <AccordionContent>
-                  Yes! You can export your extracted dates to Google Calendar,
-                  Apple Calendar, or download them as a standard .ics file that
-                  works with most calendar applications.
-                </AccordionContent>
-              </AccordionItem>
+                <AccordionItem value="item-3">
+                  <AccordionTrigger className="text-left">
+                    Can I export to multiple calendar apps?
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    Yes! You can export your extracted dates to Google Calendar,
+                    Apple Calendar, or download them as a standard .ics file
+                    that works with most calendar applications.
+                  </AccordionContent>
+                </AccordionItem>
 
-              <AccordionItem value="item-4">
-                <AccordionTrigger className="text-left">
-                  Is my syllabus data secure?
-                </AccordionTrigger>
-                <AccordionContent>
-                  Absolutely. We use enterprise-grade security to protect your
-                  data. Your syllabi are processed securely and are not stored
-                  permanently on our servers after processing.
-                </AccordionContent>
-              </AccordionItem>
+                <AccordionItem value="item-4">
+                  <AccordionTrigger className="text-left">
+                    Is my syllabus data secure?
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    Absolutely. We use enterprise-grade security to protect your
+                    data. Your syllabi are processed securely and are not stored
+                    permanently on our servers after processing.
+                  </AccordionContent>
+                </AccordionItem>
 
-              <AccordionItem value="item-5">
-                <AccordionTrigger className="text-left">
-                  Is SyllabusSync free to use?
-                </AccordionTrigger>
-                <AccordionContent>
-                  Yes, SyllabusSync is completely free for students. We believe
-                  in helping students stay organized without any financial
-                  barriers.
-                </AccordionContent>
-              </AccordionItem>
+                <AccordionItem value="item-5">
+                  <AccordionTrigger className="text-left">
+                    Is SyllabusSync free to use?
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    Yes, SyllabusSync is completely free for students. We
+                    believe in helping students stay organized without any
+                    financial barriers.
+                  </AccordionContent>
+                </AccordionItem>
 
-              <AccordionItem value="item-6">
-                <AccordionTrigger className="text-left">
-                  What if the AI misses some dates?
-                </AccordionTrigger>
-                <AccordionContent>
-                  You can review all extracted dates in our verification screen
-                  before exporting. You can edit, add, or remove dates as needed
-                  to ensure everything is accurate.
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-          </div>
+                <AccordionItem value="item-6">
+                  <AccordionTrigger className="text-left">
+                    What if the AI misses some dates?
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    You can review all extracted dates in our verification
+                    screen before exporting. You can edit, add, or remove dates
+                    as needed to ensure everything is accurate.
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </div>
+          </ScrollAnimation>
         </div>
       </section>
 
       {/* Contact Section */}
-      <section id="contact" className="py-24 bg-gray-50">
+      <section id="contact" className="py-24 bg-gray-50 calendar-bg">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold mb-4">Get in Touch</h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              Have questions or need support? We're here to help!
-            </p>
-          </div>
+          <ScrollAnimation>
+            <div className="text-center mb-16">
+              <h2 className="text-3xl font-bold mb-4">Get in Touch</h2>
+              <p className="text-gray-600 max-w-2xl mx-auto">
+                Have questions or need support? We're here to help!
+              </p>
+            </div>
+          </ScrollAnimation>
 
           <div className="grid lg:grid-cols-2 gap-12 max-w-6xl mx-auto">
             {/* Contact Information */}
-            <div className="space-y-8">
-              <div>
-                <h3 className="text-2xl font-semibold mb-6">
-                  Contact Information
-                </h3>
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                      <Mail className="w-6 h-6 text-orange-600" />
+            <ScrollAnimation delay={200}>
+              <div className="space-y-8">
+                <div>
+                  <h3 className="text-2xl font-semibold mb-6">
+                    Contact Information
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                        <Mail className="w-6 h-6 text-orange-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Email</p>
+                        <p className="text-gray-600">
+                          syllabussyncsup2025@gmail.com
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium">Email</p>
-                      <p className="text-gray-600">
-                        syllabussyncsup2025@gmail.com
-                      </p>
-                    </div>
-                  </div>
 
-                  <div className="flex items-center space-x-4">
-                    <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                      <Phone className="w-6 h-6 text-orange-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium">Phone</p>
-                      <p className="text-gray-600">+1 (469) 756-0708</p>
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                        <Phone className="w-6 h-6 text-orange-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Phone</p>
+                        <p className="text-gray-600">+1 (469) 756-0708</p>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
+            </ScrollAnimation>
 
             {/* Contact Form */}
-            <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
-              <h3 className="text-2xl font-semibold mb-6">Send us a Message</h3>
-              <form
-                action={async (formData) => {
-                  "use server";
-                  // This is a placeholder - in a real app you'd handle the form submission
-                  console.log("Contact form submitted:", {
-                    name: formData.get("name"),
-                    email: formData.get("email"),
-                    subject: formData.get("subject"),
-                    message: formData.get("message"),
-                  });
-                }}
-                className="space-y-6"
-              >
-                <div className="grid md:grid-cols-2 gap-4">
+            <ScrollAnimation delay={400}>
+              <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 glass-effect">
+                <h3 className="text-2xl font-semibold mb-6">
+                  Send us a Message
+                </h3>
+                <form
+                  action={async (formData) => {
+                    "use server";
+                    // This is a placeholder - in a real app you'd handle the form submission
+                    console.log("Contact form submitted:", {
+                      name: formData.get("name"),
+                      email: formData.get("email"),
+                      subject: formData.get("subject"),
+                      message: formData.get("message"),
+                    });
+                  }}
+                  className="space-y-6"
+                >
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label
+                        htmlFor="name"
+                        className="block text-sm font-medium text-gray-700 mb-2"
+                      >
+                        Name *
+                      </label>
+                      <Input
+                        id="name"
+                        name="name"
+                        type="text"
+                        required
+                        placeholder="Your full name"
+                        className="w-full"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="email"
+                        className="block text-sm font-medium text-gray-700 mb-2"
+                      >
+                        Email *
+                      </label>
+                      <Input
+                        id="email"
+                        name="email"
+                        type="email"
+                        required
+                        placeholder="your.email@example.com"
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+
                   <div>
                     <label
-                      htmlFor="name"
+                      htmlFor="subject"
                       className="block text-sm font-medium text-gray-700 mb-2"
                     >
-                      Name *
+                      Subject *
                     </label>
                     <Input
-                      id="name"
-                      name="name"
+                      id="subject"
+                      name="subject"
                       type="text"
                       required
-                      placeholder="Your full name"
+                      placeholder="What's this about?"
                       className="w-full"
                     />
                   </div>
+
                   <div>
                     <label
-                      htmlFor="email"
+                      htmlFor="message"
                       className="block text-sm font-medium text-gray-700 mb-2"
                     >
-                      Email *
+                      Message *
                     </label>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
+                    <Textarea
+                      id="message"
+                      name="message"
                       required
-                      placeholder="your.email@example.com"
-                      className="w-full"
+                      placeholder="Tell us how we can help you..."
+                      className="w-full min-h-[120px]"
                     />
                   </div>
-                </div>
 
-                <div>
-                  <label
-                    htmlFor="subject"
-                    className="block text-sm font-medium text-gray-700 mb-2"
+                  <Button
+                    type="submit"
+                    className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 text-lg font-medium"
                   >
-                    Subject *
-                  </label>
-                  <Input
-                    id="subject"
-                    name="subject"
-                    type="text"
-                    required
-                    placeholder="What's this about?"
-                    className="w-full"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="message"
-                    className="block text-sm font-medium text-gray-700 mb-2"
-                  >
-                    Message *
-                  </label>
-                  <Textarea
-                    id="message"
-                    name="message"
-                    required
-                    placeholder="Tell us how we can help you..."
-                    className="w-full min-h-[120px]"
-                  />
-                </div>
-
-                <Button
-                  type="submit"
-                  className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 text-lg font-medium"
-                >
-                  Send Message
-                </Button>
-              </form>
-            </div>
+                    Send Message
+                  </Button>
+                </form>
+              </div>
+            </ScrollAnimation>
           </div>
         </div>
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-white">
+      <section className="py-20 bg-white calendar-bg">
         <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold mb-4">
-            Ready to Never Miss a Deadline?
-          </h2>
-          <p className="text-gray-600 mb-8 max-w-2xl mx-auto">
-            Join thousands of students who stay organized with SyllabusSync.
-          </p>
-          <a
-            href="/dashboard"
-            className="inline-flex items-center px-8 py-4 text-white bg-orange-500 rounded-lg hover:bg-orange-600 transition-all duration-200 text-lg font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-          >
-            Upload Your First Syllabus
-            <Upload className="ml-2 w-5 h-5" />
-          </a>
+          <ScrollAnimation>
+            <h2 className="text-3xl font-bold mb-4">
+              Ready to Never Miss a Deadline?
+            </h2>
+            <p className="text-gray-600 mb-8 max-w-2xl mx-auto">
+              Join thousands of students who stay organized with SyllabusSync.
+            </p>
+            <a
+              href="/dashboard"
+              className="inline-flex items-center px-8 py-4 text-white bg-orange-500 rounded-lg hover:bg-orange-600 transition-all duration-300 text-lg font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-1 hover:scale-105 group"
+            >
+              Upload Your First Syllabus
+              <Upload className="ml-2 w-5 h-5 group-hover:rotate-12 transition-transform duration-300" />
+            </a>
+          </ScrollAnimation>
         </div>
       </section>
 

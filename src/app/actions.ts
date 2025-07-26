@@ -42,25 +42,8 @@ export const signUpAction = async (formData: FormData) => {
     return encodedRedirect("error", "/sign-up", error.message);
   }
 
-  if (user) {
-    try {
-      const { error: updateError } = await supabase.from("users").insert({
-        id: user.id,
-        name: fullName,
-        full_name: fullName,
-        email: email,
-        user_id: user.id,
-        token_identifier: user.id,
-        created_at: new Date().toISOString(),
-      });
-
-      if (updateError) {
-        console.error("Error updating user profile:", updateError);
-      }
-    } catch (err) {
-      console.error("Error in user profile creation:", err);
-    }
-  }
+  // User creation will be handled by the database trigger
+  // No need to manually insert into users table here
 
   return encodedRedirect(
     "success",

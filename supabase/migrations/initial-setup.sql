@@ -17,23 +17,18 @@ CREATE TABLE IF NOT EXISTS public.users (
 -- Add RLS (Row Level Security) policies
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
--- Create policies if they don't exist
-DO $$
-BEGIN
-    -- Check if the policy for users exists
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies 
-        WHERE schemaname = 'public' 
-        AND tablename = 'users' 
-        AND policyname = 'Users can view own data'
-    ) THEN
-        -- Create policy to allow users to see only their own data
-        EXECUTE 'CREATE POLICY "Users can view own data" ON public.users
-                FOR SELECT USING (auth.uid()::text = user_id)';
-    END IF;
+-- Create policies for users table
+DROP POLICY IF EXISTS "Users can view own data" ON public.users;
+CREATE POLICY "Users can view own data" ON public.users
+  FOR SELECT USING (auth.uid()::text = user_id);
 
-END
-$$;
+DROP POLICY IF EXISTS "Users can insert own data" ON public.users;
+CREATE POLICY "Users can insert own data" ON public.users
+  FOR INSERT WITH CHECK (auth.uid()::text = user_id);
+
+DROP POLICY IF EXISTS "Users can update own data" ON public.users;
+CREATE POLICY "Users can update own data" ON public.users
+  FOR UPDATE USING (auth.uid()::text = user_id);
 
 -- Create a function that will be triggered when a new user signs up
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -90,4 +85,4 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 DROP TRIGGER IF EXISTS on_auth_user_updated ON auth.users;
 CREATE TRIGGER on_auth_user_updated
   AFTER UPDATE ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_user_update(); 
+  FOR EACH ROW EXECUTE FUNCTION public.handle_user_update();
