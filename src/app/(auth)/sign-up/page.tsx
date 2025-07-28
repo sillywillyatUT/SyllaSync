@@ -9,9 +9,10 @@ import Navbar from "@/components/navbar";
 import { UrlProvider } from "@/components/url-provider";
 
 export default async function Signup(props: {
-  searchParams: Promise<Message>;
+  searchParams: Promise<Message & { redirect_to?: string }>;
 }) {
   const searchParams = await props.searchParams;
+  const redirectTo = searchParams.redirect_to;
   if ("message" in searchParams) {
     return (
       <div className="flex h-screen w-full flex-1 items-center justify-center p-4 sm:max-w-md">
@@ -27,13 +28,18 @@ export default async function Signup(props: {
         <div className="w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-sm">
           <UrlProvider>
             <form className="flex flex-col space-y-6">
+              {redirectTo && (
+                <input type="hidden" name="redirect_to" value={redirectTo} />
+              )}
               <div className="space-y-2 text-center">
-                <h1 className="text-3xl font-semibold tracking-tight">Sign up</h1>
+                <h1 className="text-3xl font-semibold tracking-tight">
+                  Sign up
+                </h1>
                 <p className="text-sm text-muted-foreground">
                   Already have an account?{" "}
                   <Link
                     className="text-primary font-medium hover:underline transition-all"
-                    href="/sign-in"
+                    href={`/sign-in${redirectTo ? `?redirect_to=${encodeURIComponent(redirectTo)}` : ""}`}
                   >
                     Sign in
                   </Link>

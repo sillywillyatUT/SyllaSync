@@ -7,11 +7,13 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 
 interface LoginProps {
-  searchParams: Promise<Message>;
+  searchParams: Promise<Message & { redirect_to?: string }>;
 }
 
 export default async function SignInPage({ searchParams }: LoginProps) {
-  const message = await searchParams;
+  const params = await searchParams;
+  const message = params;
+  const redirectTo = params.redirect_to;
 
   if ("message" in message) {
     return (
@@ -27,13 +29,16 @@ export default async function SignInPage({ searchParams }: LoginProps) {
       <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-8">
         <div className="w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-sm">
           <form className="flex flex-col space-y-6">
+            {redirectTo && (
+              <input type="hidden" name="redirect_to" value={redirectTo} />
+            )}
             <div className="space-y-2 text-center">
               <h1 className="text-3xl font-semibold tracking-tight">Sign in</h1>
               <p className="text-sm text-muted-foreground">
                 Don't have an account?{" "}
                 <Link
                   className="text-primary font-medium hover:underline transition-all"
-                  href="/sign-up"
+                  href={`/sign-up${redirectTo ? `?redirect_to=${encodeURIComponent(redirectTo)}` : ""}`}
                 >
                   Sign up
                 </Link>

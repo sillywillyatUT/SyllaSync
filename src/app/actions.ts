@@ -9,6 +9,7 @@ export const signUpAction = async (formData: FormData) => {
   const email = formData.get("email")?.toString();
   const password = formData.get("password")?.toString();
   const fullName = formData.get("full_name")?.toString() || "";
+  const redirectTo = formData.get("redirect_to")?.toString();
   const supabase = await createClient();
   const origin = headers().get("origin");
 
@@ -27,7 +28,7 @@ export const signUpAction = async (formData: FormData) => {
     email,
     password,
     options: {
-      emailRedirectTo: `${origin}/auth/callback`,
+      emailRedirectTo: `${origin}/auth/callback${redirectTo ? `?redirect_to=${encodeURIComponent(redirectTo)}` : ""}`,
       data: {
         full_name: fullName,
         email: email,
@@ -55,6 +56,7 @@ export const signUpAction = async (formData: FormData) => {
 export const signInAction = async (formData: FormData) => {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
+  const redirectTo = formData.get("redirect_to") as string;
   const supabase = await createClient();
 
   const { error } = await supabase.auth.signInWithPassword({
@@ -66,7 +68,7 @@ export const signInAction = async (formData: FormData) => {
     return encodedRedirect("error", "/sign-in", error.message);
   }
 
-  return redirect("/dashboard");
+  return redirect(redirectTo || "/dashboard");
 };
 
 export const forgotPasswordAction = async (formData: FormData) => {
@@ -146,14 +148,15 @@ export const signOutAction = async () => {
   return redirect("/sign-in");
 };
 
-export const signInWithGoogleAction = async () => {
+export const signInWithGoogleAction = async (formData?: FormData) => {
   const supabase = await createClient();
   const origin = headers().get("origin");
+  const redirectTo = formData?.get("redirect_to")?.toString() || "/dashboard";
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `${origin}/auth/callback?redirect_to=/dashboard`,
+      redirectTo: `${origin}/auth/callback?redirect_to=${encodeURIComponent(redirectTo)}`,
     },
   });
 

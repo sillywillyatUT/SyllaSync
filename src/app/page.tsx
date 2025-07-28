@@ -435,7 +435,7 @@ export default async function Home() {
               Join thousands of students who stay organized with SyllabusSync.
             </p>
             <a
-              href="/dashboard"
+              href="/upload"
               className="inline-flex items-center px-8 py-4 text-white bg-orange-500 rounded-lg hover:bg-orange-600 transition-all duration-300 text-lg font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-1 hover:scale-105 group"
             >
               Upload Your First Syllabus
