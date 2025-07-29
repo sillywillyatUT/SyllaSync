@@ -68,7 +68,7 @@ export default function Hero() {
               className={`flex flex-col sm:flex-row gap-4 justify-center items-center transition-all duration-1000 ease-out delay-500 ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}
             >
               <Link
-                href="/dashboard"
+                href="/upload"
                 className="inline-flex items-center px-8 py-4 text-white bg-orange-500 rounded-lg hover:bg-orange-600 transition-all duration-300 text-lg font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-1 hover:scale-105 group"
               >
                 Upload Syllabus Now
