@@ -55,11 +55,11 @@ export default async function Navbar() {
           {user ? (
             <>
               <Link
-                href="/dashboard"
+                href="/upload"
                 className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
               >
                 <Button variant="ghost" className="hover:bg-orange-50">
-                  Dashboard
+                  Upload
                 </Button>
               </Link>
               <UserProfile />

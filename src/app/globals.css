@@ -103,4 +103,67 @@
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.2);
   }
+
+  .upload-area {
+    border-radius: 20px;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border: 2px dashed #e2e8f0;
+    transition: all 0.3s ease;
+  }
+
+  .upload-area:hover {
+    border-color: #f97316;
+    background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(249, 115, 22, 0.1);
+  }
+
+  .upload-area.drag-over {
+    border-color: #f97316;
+    background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+    transform: scale(1.02);
+    box-shadow: 0 15px 35px rgba(249, 115, 22, 0.15);
+  }
+
+  .file-upload-success {
+    animation: fileSuccess 0.6s ease-out;
+  }
+
+  @keyframes fileSuccess {
+    0% {
+      transform: scale(1) rotate(0deg);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.2) rotate(5deg);
+      opacity: 0.8;
+    }
+    100% {
+      transform: scale(1) rotate(0deg);
+      opacity: 1;
+    }
+  }
+
+  .bounce-in {
+    animation: bounceIn 0.5s ease-out;
+  }
+
+  @keyframes bounceIn {
+    0% {
+      transform: scale(0.3) translateY(-50px);
+      opacity: 0;
+    }
+    50% {
+      transform: scale(1.05) translateY(0);
+      opacity: 0.8;
+    }
+    70% {
+      transform: scale(0.9);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
 }

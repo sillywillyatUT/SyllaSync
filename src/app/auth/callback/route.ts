@@ -37,7 +37,8 @@ export async function GET(request: Request) {
   }
 
   // URL to redirect to after sign in process completes
-  const redirectTo = redirect_to || "/upload";
+  // Use the redirect_to parameter if provided, otherwise default to dashboard
+  const redirectTo = redirect_to || "/dashboard";
   const redirectUrl = new URL(redirectTo, requestUrl.origin);
   // Clear any query parameters to prevent redirect loops
   redirectUrl.search = "";
