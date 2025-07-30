@@ -17,7 +17,7 @@ export default function GoogleAuthButton() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/authcallback?redirect_to=/upload`,
+          redirectTo: `${window.location.origin}/upload`,
         },
       });
 
