@@ -32,7 +32,9 @@ interface ExtractedDate {
   id: string;
   title: string;
   date: string;
-  type: "assignment" | "exam" | "class" | "deadline";
+  type: "assignment" | "exam" | "midterm" | "final" | "quiz" | "class" | "deadline" | "holiday";
+  time?: string;
+  recurrence?: string;
   description?: string;
 }
 
@@ -46,13 +48,7 @@ export default function UploadClient() {
 
   const acceptedFileTypes = [
     ".pdf",
-    ".doc",
-    ".docx",
-    ".txt",
     "application/pdf",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "text/plain",
   ];
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -145,51 +141,51 @@ export default function UploadClient() {
   const processFiles = async () => {
     setIsProcessing(true);
 
-    // Simulate AI extraction process
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    try {
+      const successfulFiles = files.filter((f) => f.status === "success");
+      
+      if (successfulFiles.length === 0) {
+        throw new Error("No files to process");
+      }
 
-    // Simulate extracted dates from AI processing
-    const mockExtractedDates: ExtractedDate[] = [
-      {
-        id: "1",
-        title: "Assignment 1: Research Paper",
-        date: "2024-02-15",
-        type: "assignment",
-        description: "Submit 5-page research paper on topic of choice",
-      },
-      {
-        id: "2",
-        title: "Midterm Exam",
-        date: "2024-03-10",
-        type: "exam",
-        description: "Covers chapters 1-6, multiple choice and essay questions",
-      },
-      {
-        id: "3",
-        title: "Class Presentation",
-        date: "2024-03-22",
-        type: "class",
-        description: "10-minute presentation on research findings",
-      },
-      {
-        id: "4",
-        title: "Final Project Deadline",
-        date: "2024-04-28",
-        type: "deadline",
-        description: "Complete project with documentation and code",
-      },
-      {
-        id: "5",
-        title: "Final Exam",
-        date: "2024-05-05",
-        type: "exam",
-        description: "Comprehensive final examination",
-      },
-    ];
+      // Process each PDF file
+      const allExtractedDates: ExtractedDate[] = [];
+      
+      for (const uploadedFile of successfulFiles) {
+        if (uploadedFile.file.type === 'application/pdf') {
+          const formData = new FormData();
+          formData.append('file', uploadedFile.file);
 
-    setExtractedDates(mockExtractedDates);
-    setIsProcessing(false);
-    setShowResults(true);
+          const response = await fetch('/api/process-pdf', {
+            method: 'POST',
+            body: formData,
+          });
+
+          const contentType = response.headers.get("content-type") || "";
+          if (!response.ok || !contentType.includes("application/json")) {
+            const text = await response.text();
+            console.error("Unexpected response:", text); // 👈 logs actual HTML or error
+            throw new Error(`Unexpected response (${response.status}): ${text.slice(0, 200)}`);
+          }
+
+          const result = await response.json();
+          
+          if (result.success && result.extractedDates) {
+            allExtractedDates.push(...result.extractedDates);
+          }
+        }
+      }
+
+      setExtractedDates(allExtractedDates);
+      setIsProcessing(false);
+      setShowResults(true);
+    } catch (error) {
+      console.error('Error processing files:', error);
+      setIsProcessing(false);
+      
+      // Show error to user (you might want to add a toast notification here)
+      alert(`Error processing files: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   };
 
   const formatFileSize = (bytes: number) => {
@@ -217,10 +213,18 @@ export default function UploadClient() {
         return "📝";
       case "exam":
         return "📊";
+      case "midterm":
+        return "📋";
+      case "final":
+        return "🎯";
+      case "quiz":
+        return "❓";
       case "class":
         return "🎓";
       case "deadline":
         return "⏰";
+      case "holiday":
+        return "🎉";
       default:
         return "📅";
     }
@@ -232,10 +236,18 @@ export default function UploadClient() {
         return "bg-blue-100 text-blue-800";
       case "exam":
         return "bg-red-100 text-red-800";
+      case "midterm":
+        return "bg-purple-100 text-purple-800";
+      case "final":
+        return "bg-red-200 text-red-900";
+      case "quiz":
+        return "bg-yellow-100 text-yellow-800";
       case "class":
         return "bg-green-100 text-green-800";
       case "deadline":
         return "bg-orange-100 text-orange-800";
+      case "holiday":
+        return "bg-pink-100 text-pink-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -328,7 +340,7 @@ export default function UploadClient() {
               className="hidden"
             />
             <p className="text-sm text-gray-500 mt-6">
-              Supports PDF, DOC, DOCX, TXT files up to 10MB each
+              Currently supports PDF files up to 10MB each
             </p>
           </div>
         </div>
@@ -456,9 +468,21 @@ export default function UploadClient() {
                               {dateItem.type}
                             </span>
                           </div>
-                          <p className="text-sm font-medium text-orange-600 mb-1">
-                            {formatDate(dateItem.date)}
-                          </p>
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="text-sm font-medium text-orange-600">
+                              {formatDate(dateItem.date)}
+                            </p>
+                            {dateItem.time && (
+                              <span className="text-sm text-gray-500">
+                                at {dateItem.time}
+                              </span>
+                            )}
+                          </div>
+                          {dateItem.recurrence && (
+                            <p className="text-sm text-blue-600 mb-1">
+                              {dateItem.recurrence}
+                            </p>
+                          )}
                           {dateItem.description && (
                             <p className="text-sm text-gray-600">
                               {dateItem.description}
@@ -575,10 +599,10 @@ export default function UploadClient() {
                   </div>
                   <div>
                     <h4 className="font-semibold text-gray-900">
-                      Word Documents
+                      Coming Soon
                     </h4>
                     <p className="text-sm text-gray-600">
-                      .doc and .docx files
+                      Word documents and text files
                     </p>
                   </div>
                 </div>
@@ -587,7 +611,7 @@ export default function UploadClient() {
                     <FileText className="w-5 h-5 text-gray-500" />
                   </div>
                   <div>
-                    <h4 className="font-semibold text-gray-900">Text Files</h4>
+                    <h4 className="font-semibold text-gray-900">Coming Soon</h4>
                     <p className="text-sm text-gray-600">Plain text format</p>
                   </div>
                 </div>
