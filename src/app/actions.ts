@@ -151,7 +151,7 @@ export const signOutAction = async () => {
 export const signInWithGoogleAction = async (formData?: FormData) => {
   const supabase = await createClient();
   const origin = headers().get("origin");
-  const redirectTo = formData?.get("redirect_to")?.toString() || "/dashboard";
+  const redirectTo = formData?.get("redirect_to")?.toString() || "/upload";
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",

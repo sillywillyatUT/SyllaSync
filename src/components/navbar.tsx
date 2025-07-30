@@ -3,7 +3,6 @@ import { createClient } from "../../supabase/server";
 import { Button } from "./ui/button";
 import { User, UserCircle } from "lucide-react";
 import UserProfile from "./user-profile";
-import GoogleAuthButton from "./google-auth-button";
 
 export default async function Navbar() {
   const supabase = createClient();
@@ -72,15 +71,12 @@ export default async function Navbar() {
               >
                 Sign In
               </Link>
-              <div className="flex gap-2">
-                <GoogleAuthButton />
-                <Link
-                  href="/sign-up"
-                  className="px-4 py-2 text-sm font-medium text-white bg-orange-500 rounded-md hover:bg-orange-600 transition-all duration-200 shadow-sm hover:shadow-md"
-                >
-                  Sign Up
-                </Link>
-              </div>
+              <Link
+                href="/sign-up"
+                className="px-4 py-2 text-sm font-medium text-white bg-orange-500 rounded-md hover:bg-orange-600 transition-all duration-200 shadow-sm hover:shadow-md"
+              >
+                Sign Up
+              </Link>
             </>
           )}
         </div>

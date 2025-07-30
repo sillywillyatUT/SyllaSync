@@ -10,7 +10,7 @@ export default async function UploadPage() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/sign-up"); // or "/login" depending on your auth flow
+    redirect("/sign-in"); // Redirect to sign-in page if user is not authenticated
   }
 
   return (

@@ -7,6 +7,7 @@ import { SmtpMessage } from "../smtp-message";
 import { signUpAction } from "@/app/actions";
 import Navbar from "@/components/navbar";
 import { UrlProvider } from "@/components/url-provider";
+import GoogleAuthButton from "@/components/google-auth-button";
 
 export default async function Signup(props: {
   searchParams: Promise<Message & { redirect_to?: string }>;
@@ -98,6 +99,19 @@ export default async function Signup(props: {
               >
                 Sign up
               </SubmitButton>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">
+                    Or continue with
+                  </span>
+                </div>
+              </div>
+
+              <GoogleAuthButton />
 
               <FormMessage message={searchParams} />
             </form>
