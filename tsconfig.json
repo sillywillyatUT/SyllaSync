@@ -19,7 +19,9 @@
     "paths": {
       "@/*": ["./*"], // can access root-level files like ./app/*
       "@/app/*": ["./app/*"], // new location of your app directory
-      "@/components/*": ["./src/components/*"] // components still in src
+      "@/components/*": ["./src/components/*"], // components still in src
+      "@/lib/*": ["./src/lib/*"], // lib utilities
+      "@/utils/*": ["./src/utils/*"] // utils functions
     }
   },
   "include": [

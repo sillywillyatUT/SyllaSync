@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Navbar from "@/components/navbar";
 import UploadClient from "@/components/upload-client";
-import { createClient } from "../../supabase/server"; // adjust path as needed
+import { createClient } from "../../supabase/server";
 
 export default async function UploadPage() {
   const supabase = await createClient();
