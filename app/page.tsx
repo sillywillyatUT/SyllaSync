@@ -22,7 +22,7 @@ import {
   Mail,
   Phone,
 } from "lucide-react";
-import { createClient } from "../../supabase/server";
+import { createClient } from "../supabase/server";
 
 export default async function Home() {
   const supabase = await createClient();

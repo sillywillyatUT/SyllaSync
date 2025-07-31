@@ -47,9 +47,8 @@ export const updateSession = async (request: NextRequest) => {
       return NextResponse.redirect(new URL("/sign-in", request.url));
     }
 
-    if (request.nextUrl.pathname === "/" && !error) {
-      return NextResponse.redirect(new URL("/", request.url));
-    }
+    // Remove the problematic redirect that causes infinite loop
+    // The home page should be accessible to all users
 
     return response;
   } catch (e) {

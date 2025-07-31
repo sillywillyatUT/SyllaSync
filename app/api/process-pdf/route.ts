@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Groq } from 'groq-sdk';
-import pdf from 'pdf-parse';
+
+// Import pdf-parse with error handling
+let pdfParse: any;
+try {
+  pdfParse = require('pdf-parse');
+} catch (error) {
+  console.error('Failed to load pdf-parse:', error);
+}
 
 // Initialize Groq client
 const groq = new Groq({
@@ -30,8 +37,16 @@ export async function POST(request: NextRequest) {
     // Convert file to buffer
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    // Extract text from PDF
-    const pdfData = await pdf(buffer);
+    // Check if pdf-parse is available
+    if (!pdfParse) {
+      return NextResponse.json(
+        { error: 'PDF processing library not available' },
+        { status: 500 }
+      );
+    }
+
+    // Extract text from PDF using pdf-parse
+    const pdfData = await pdfParse(buffer);
     const extractedText = pdfData.text;
 
     if (!extractedText || extractedText.trim().length === 0) {

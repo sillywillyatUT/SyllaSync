@@ -1,27 +1,43 @@
-import React from "react";
 import { updateSession } from "./supabase/middleware";
 import { type NextRequest, NextResponse } from "next/server";
-import { createClient } from "./supabase/server";
+import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(request: NextRequest) {
   // Handle authentication session update
   const response = await updateSession(request);
 
-  // Check if user is authenticated and visiting root path
-  if (request.nextUrl.pathname === "/") {
+  // Add protection for upload page - only allow authenticated users
+  if (request.nextUrl.pathname === "/upload") {
     try {
-      const supabase = await createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            getAll() {
+              return request.cookies.getAll().map(({ name, value }) => ({
+                name,
+                value,
+              }));
+            },
+            setAll(cookiesToSet) {
+              cookiesToSet.forEach(({ name, value, options }) => {
+                request.cookies.set(name, value);
+                response.cookies.set(name, value, options);
+              });
+            },
+          },
+        }
+      );
 
-      if (user) {
-        // Redirect authenticated users to upload page
-        return NextResponse.redirect(new URL("/upload", request.url));
+      const { data: { user }, error } = await supabase.auth.getUser();
+      
+      if (error || !user) {
+        return NextResponse.redirect(new URL("/sign-in", request.url));
       }
     } catch (error) {
-      // If there's an error checking auth, continue with normal flow
       console.error("Auth check error:", error);
+      return NextResponse.redirect(new URL("/sign-in", request.url));
     }
   }
 
