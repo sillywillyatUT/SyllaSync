@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { createClient } from "../../supabase/client";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -32,7 +33,15 @@ interface ExtractedDate {
   id: string;
   title: string;
   date: string;
-  type: "assignment" | "exam" | "midterm" | "final" | "quiz" | "class" | "deadline" | "holiday";
+  type:
+    | "assignment"
+    | "exam"
+    | "midterm"
+    | "final"
+    | "quiz"
+    | "class"
+    | "deadline"
+    | "holiday";
   time?: string;
   recurrence?: string;
   description?: string;
@@ -46,10 +55,7 @@ export default function UploadClient() {
   const [showResults, setShowResults] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const acceptedFileTypes = [
-    ".pdf",
-    "application/pdf",
-  ];
+  const acceptedFileTypes = [".pdf", "application/pdf"];
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -143,21 +149,21 @@ export default function UploadClient() {
 
     try {
       const successfulFiles = files.filter((f) => f.status === "success");
-      
+
       if (successfulFiles.length === 0) {
         throw new Error("No files to process");
       }
 
       // Process each PDF file
       const allExtractedDates: ExtractedDate[] = [];
-      
-      for (const uploadedFile of successfulFiles) {
-        if (uploadedFile.file.type === 'application/pdf') {
-          const formData = new FormData();
-          formData.append('file', uploadedFile.file);
 
-          const response = await fetch('/api/process-pdf', {
-            method: 'POST',
+      for (const uploadedFile of successfulFiles) {
+        if (uploadedFile.file.type === "application/pdf") {
+          const formData = new FormData();
+          formData.append("file", uploadedFile.file);
+
+          const response = await fetch("/api/process-pdf", {
+            method: "POST",
             body: formData,
           });
 
@@ -165,26 +171,52 @@ export default function UploadClient() {
           if (!response.ok || !contentType.includes("application/json")) {
             const text = await response.text();
             console.error("Unexpected response:", text); // 👈 logs actual HTML or error
-            throw new Error(`Unexpected response (${response.status}): ${text.slice(0, 200)}`);
+            throw new Error(
+              `Unexpected response (${response.status}): ${text.slice(0, 200)}`,
+            );
           }
 
           const result = await response.json();
-          
+
           if (result.success && result.extractedDates) {
             allExtractedDates.push(...result.extractedDates);
           }
         }
       }
 
+      // Update syllabi count in database
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user && successfulFiles.length > 0) {
+        const { data: currentProfile } = await supabase
+          .from("users")
+          .select("syllabi_processed")
+          .eq("user_id", user.id)
+          .single();
+
+        const currentCount = currentProfile?.syllabi_processed || 0;
+        const newCount = currentCount + successfulFiles.length;
+
+        await supabase
+          .from("users")
+          .update({ syllabi_processed: newCount })
+          .eq("user_id", user.id);
+      }
+
       setExtractedDates(allExtractedDates);
       setIsProcessing(false);
       setShowResults(true);
     } catch (error) {
-      console.error('Error processing files:', error);
+      console.error("Error processing files:", error);
       setIsProcessing(false);
-      
+
       // Show error to user (you might want to add a toast notification here)
-      alert(`Error processing files: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      alert(
+        `Error processing files: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
     }
   };
 
@@ -598,9 +630,7 @@ export default function UploadClient() {
                     <FileText className="w-5 h-5 text-blue-500" />
                   </div>
                   <div>
-                    <h4 className="font-semibold text-gray-900">
-                      Coming Soon
-                    </h4>
+                    <h4 className="font-semibold text-gray-900">Coming Soon</h4>
                     <p className="text-sm text-gray-600">
                       Word documents and text files
                     </p>

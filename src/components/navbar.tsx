@@ -11,6 +11,16 @@ export default async function Navbar() {
     data: { user },
   } = await (await supabase).auth.getUser();
 
+  let userProfile = null;
+  if (user) {
+    const { data: profile } = await (await supabase)
+      .from("users")
+      .select("*")
+      .eq("user_id", user.id)
+      .single();
+    userProfile = profile;
+  }
+
   return (
     <nav className="w-full border-b border-gray-100 bg-white/80 backdrop-blur-md py-3 sticky top-0 z-50">
       <div className="container mx-auto px-4 flex justify-between items-center">
@@ -61,7 +71,17 @@ export default async function Navbar() {
                   Upload
                 </Button>
               </Link>
-              <UserProfile />
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <p className="text-sm font-medium text-gray-900">
+                    {user.email}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {userProfile?.syllabi_processed || 0} syllabi processed
+                  </p>
+                </div>
+                <UserProfile user={user} userProfile={userProfile} />
+              </div>
             </>
           ) : (
             <>

@@ -23,6 +23,7 @@ export type Database = {
           id: string
           image: string | null
           name: string | null
+          syllabi_processed: number | null
           token_identifier: string
           updated_at: string | null
           user_id: string | null
@@ -35,6 +36,7 @@ export type Database = {
           id: string
           image?: string | null
           name?: string | null
+          syllabi_processed?: number | null
           token_identifier: string
           updated_at?: string | null
           user_id?: string | null
@@ -47,6 +49,7 @@ export type Database = {
           id?: string
           image?: string | null
           name?: string | null
+          syllabi_processed?: number | null
           token_identifier?: string
           updated_at?: string | null
           user_id?: string | null
