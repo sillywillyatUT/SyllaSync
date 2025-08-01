@@ -58,34 +58,23 @@ export async function POST(request: NextRequest) {
 
     // Use Groq to extract dates and important information
     const prompt = `
-    You are an academic assistant helping students organize their semester. Given the text of a college course syllabus, extract all important **academic dates**. Include:
+      You are an academic assistant helping students organize their semester. Given the text of a college course syllabus, extract all important **academic dates**. Include:
 
-    - \`type\`: one of ["Assignment", "Exam", "Midterm", "Final", "Quiz", "Class", "Deadline", "Holiday"]
-    - \`title\`: a short description (e.g., "Midterm 1" or "Assignment 3 due")
-    - \`date\`: in MM/DD/YYYY or Month Day, Year format
-    - \`time\`: if available (optional)
-    - \`recurrence\`: if the event repeats (e.g., "weekly starting January 26, 2025") (optional)
+      - \`type\`: one of ["Assignment", "Exam", "Midterm", "Final", "Quiz", "Class", "Deadline", "Holiday"]
+      - \`title\`: a short description (e.g., "Midterm 1" or "Assignment 3 due")
+      - \`date\`: in MM/DD/YYYY or Month Day, Year format
+      - \`time\`: if available (optional)
+      - \`location\`: if available (optional)
+      - \`recurrence\`: if the event repeats. Use this format:
+        - "Every [Day(s)] until [End Date]", e.g., "Every Monday and Wednesday until May 3, 2025"
 
-    Also include:
-    - The first and last day of class
-    - University academic deadlines (e.g., add/drop, pass/fail, enrollment count)
+      Special Instructions:
+      - If the syllabus includes a weekly class schedule (e.g., "MWF 12:00 PM – 1:00 PM"), and also includes the first and last day of class, include the class as a recurring event using the \`recurrence\` field.
+      - If the syllabus describes recurring classes but does **not** provide start or end dates, set \`recurrence\` to an empty string and leave a note in the description.
 
-    Ignore references to events without specific dates.
-
-    Return the results as a JSON list of events with the format:
-
-    [
-      {
-        "type": "Exam",
-        "title": "Midterm 1",
-        "date": "October 13, 2025",
-        "time": "12:00 PM"
-      },
-      ...
-    ]
-
-    Syllabus text:
-    ${extractedText.substring(0, 8000)} // Limit to first 8000 chars to stay within token limits
+      Only include events with specific, extractable dates. Return the result as a valid JSON array.
+      Syllabus text:
+    ${extractedText.substring(0, 8000)}
     `;
 
     const completion = await groq.chat.completions.create({
@@ -99,13 +88,13 @@ export async function POST(request: NextRequest) {
           content: prompt
         }
       ],
-      model: 'llama3-8b-8192', // Using Llama 3.1 8B for cost-effectiveness
-      temperature: 0.1, // Low temperature for consistent results
+      model: 'llama3-8b-8192',
+      temperature: 0.1,
       max_tokens: 1000,
     });
 
     const aiResponse = completion.choices[0]?.message?.content;
-    
+
     if (!aiResponse) {
       return NextResponse.json(
         { error: 'Failed to process with AI' },
@@ -116,19 +105,16 @@ export async function POST(request: NextRequest) {
     // Parse the AI response
     let extractedDates;
     try {
-      // Try to extract JSON from the response
       const jsonMatch = aiResponse.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         extractedDates = JSON.parse(jsonMatch[0]);
       } else {
-        // If no JSON array found, try to parse the entire response
         extractedDates = JSON.parse(aiResponse);
       }
     } catch (error) {
       console.error('Failed to parse AI response:', error);
       console.error('AI Response:', aiResponse);
-      
-      // Return a fallback response
+
       extractedDates = [
         {
           title: "Syllabus Processing Complete",
@@ -140,29 +126,45 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate and clean the extracted dates
+    const allowedTypes = [
+      "Assignment", "Exam", "Midterm", "Final", "Quiz", "Class", "Deadline", "Holiday"
+    ];
+
     const validatedDates = extractedDates
-      .filter((item: any) => 
-        item && 
-        item.title && 
-        item.date && 
-        item.type && 
-        ['Assignment', 'Exam', 'Midterm', 'Final', 'Quiz', 'Class', 'Deadline', 'Holiday'].includes(item.type)
+      .filter((item: any) =>
+        item &&
+        item.title &&
+        item.date &&
+        item.type &&
+        allowedTypes.includes(item.type)
       )
       .map((item: any) => ({
         id: Math.random().toString(36).substr(2, 9),
         title: item.title,
         date: item.date,
-        type: item.type.toLowerCase(), // Convert to lowercase for consistency with UI
+        type: item.type.toLowerCase(),
         time: item.time || '',
         recurrence: item.recurrence || '',
         description: item.description || ''
       }));
 
+    // If no valid academic events were found
+    if (validatedDates.length === 0) {
+      return NextResponse.json(
+        {
+          error: "This file does not appear to be a syllabus. No academic dates (assignments, exams, deadlines) were found.",
+          extractedDates: [],
+          processedText: extractedText.substring(0, 500) + '...'
+        },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       extractedDates: validatedDates,
       textLength: extractedText.length,
-      processedText: extractedText.substring(0, 500) + '...' // Return first 500 chars for debugging
+      processedText: extractedText.substring(0, 500) + '...'
     });
 
   } catch (error) {
@@ -172,4 +174,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}
