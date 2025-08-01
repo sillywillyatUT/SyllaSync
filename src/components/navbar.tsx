@@ -71,17 +71,7 @@ export default async function Navbar() {
                   Upload
                 </Button>
               </Link>
-              <div className="flex items-center gap-3">
-                <div className="text-right">
-                  <p className="text-sm font-medium text-gray-900">
-                    {user.email}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {userProfile?.syllabi_processed || 0} syllabi processed
-                  </p>
-                </div>
-                <UserProfile user={user} userProfile={userProfile} />
-              </div>
+              <UserProfile user={user} userProfile={userProfile} />
             </>
           ) : (
             <>

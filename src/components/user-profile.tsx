@@ -83,14 +83,15 @@ export default function UserProfile({ user, userProfile }: UserProfileProps) {
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <div className="flex items-center justify-start gap-2 p-2">
-          <div className="flex flex-col space-y-1 leading-none">
-            <p className="font-medium">{user.email}</p>
-            <p className="text-xs text-muted-foreground">
-              {userProfile?.syllabi_processed || 0} syllabi processed
-            </p>
-          </div>
+      <DropdownMenuContent align="end" className="w-64">
+        <div className="flex flex-col space-y-2 p-4">
+          <p className="text-lg font-semibold text-gray-900">
+            {userProfile?.full_name || user.email?.split("@")[0] || "User"}
+          </p>
+          <p className="text-sm text-gray-600">{user.email}</p>
+          <p className="text-xs text-gray-500">
+            {userProfile?.syllabi_processed || 0} syllabi processed
+          </p>
         </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
