@@ -45,6 +45,16 @@ interface ExtractedDate {
   time?: string;
   recurrence?: string;
   description?: string;
+  sectionNumber?: string;
+  isRecurring?: boolean;
+}
+
+interface RecurringClassOption {
+  id: string;
+  title: string;
+  sectionNumber: string;
+  time: string;
+  selected: boolean;
 }
 
 export default function UploadClient() {
@@ -53,6 +63,10 @@ export default function UploadClient() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedDates, setExtractedDates] = useState<ExtractedDate[]>([]);
   const [showResults, setShowResults] = useState(false);
+  const [recurringClassOptions, setRecurringClassOptions] = useState<
+    RecurringClassOption[]
+  >([]);
+  const [showRecurringSelection, setShowRecurringSelection] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const acceptedFileTypes = [".pdf", "application/pdf"];
@@ -179,7 +193,52 @@ export default function UploadClient() {
           const result = await response.json();
 
           if (result.success && result.extractedDates) {
-            allExtractedDates.push(...result.extractedDates);
+            // Filter out dates without specific dates or recurring patterns
+            const validDates = result.extractedDates.filter(
+              (dateItem: ExtractedDate) => {
+                // Include if it has a specific date
+                if (
+                  dateItem.date &&
+                  dateItem.date !== "" &&
+                  !dateItem.date.includes("throughout")
+                ) {
+                  return true;
+                }
+                // Include if it has recurring pattern like "every Friday"
+                if (
+                  dateItem.recurrence &&
+                  (dateItem.recurrence.includes("every") ||
+                    dateItem.recurrence.includes("weekly"))
+                ) {
+                  return true;
+                }
+                return false;
+              },
+            );
+
+            // Check for multiple recurring class times with different sections
+            const recurringClasses = validDates.filter(
+              (dateItem: ExtractedDate) =>
+                dateItem.type === "class" &&
+                dateItem.recurrence &&
+                dateItem.sectionNumber,
+            );
+
+            if (recurringClasses.length > 1) {
+              const options = recurringClasses.map(
+                (classItem: ExtractedDate) => ({
+                  id: classItem.id,
+                  title: classItem.title,
+                  sectionNumber: classItem.sectionNumber || "Unknown",
+                  time: classItem.time || "Unknown",
+                  selected: false,
+                }),
+              );
+              setRecurringClassOptions(options);
+              setShowRecurringSelection(true);
+            }
+
+            allExtractedDates.push(...validDates);
           }
         }
       }
@@ -240,26 +299,8 @@ export default function UploadClient() {
   };
 
   const getDateTypeIcon = (type: string) => {
-    switch (type) {
-      case "assignment":
-        return "📝";
-      case "exam":
-        return "📊";
-      case "midterm":
-        return "📋";
-      case "final":
-        return "🎯";
-      case "quiz":
-        return "❓";
-      case "class":
-        return "🎓";
-      case "deadline":
-        return "⏰";
-      case "holiday":
-        return "🎉";
-      default:
-        return "📅";
-    }
+    // Return empty string to remove emojis
+    return "";
   };
 
   const getDateTypeColor = (type: string) => {
@@ -298,6 +339,33 @@ export default function UploadClient() {
   const successfulFiles = files.filter((f) => f.status === "success");
   const canProcess = successfulFiles.length > 0 && !isProcessing;
 
+  const handleRecurringClassSelection = (optionId: string) => {
+    setRecurringClassOptions((prev) =>
+      prev.map((option) =>
+        option.id === optionId
+          ? { ...option, selected: !option.selected }
+          : option,
+      ),
+    );
+  };
+
+  const confirmRecurringSelection = () => {
+    const selectedIds = recurringClassOptions
+      .filter((option) => option.selected)
+      .map((option) => option.id);
+
+    // Filter extracted dates to only include selected recurring classes
+    const filteredDates = extractedDates.filter(
+      (dateItem) =>
+        dateItem.type !== "class" ||
+        !dateItem.sectionNumber ||
+        selectedIds.includes(dateItem.id),
+    );
+
+    setExtractedDates(filteredDates);
+    setShowRecurringSelection(false);
+  };
+
   return (
     <>
       {/* Hero Section */}
@@ -309,60 +377,33 @@ export default function UploadClient() {
           <p className="text-lg text-gray-600 mb-8">
             Transform your course syllabus into a smart calendar in seconds
           </p>
-
-          {canProcess && (
-            <Button
-              onClick={processFiles}
-              disabled={!canProcess}
-              className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-3 text-lg font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-            >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  Process {successfulFiles.length} file
-                  {successfulFiles.length !== 1 ? "s" : ""}
-                  <ArrowUpRight className="w-5 h-5 ml-2" />
-                </>
-              )}
-            </Button>
-          )}
         </div>
       </div>
 
       <div className="max-w-6xl mx-auto px-6 pb-16">
         {/* Upload Area */}
-        <div className="mb-12">
+        <div className="mb-8">
           <div
             className={cn(
-              "upload-area p-12 text-center transition-all duration-300",
-              isDragOver && "drag-over",
+              "relative border-2 border-dashed rounded-2xl p-12 text-center transition-all duration-300 cursor-pointer",
+              isDragOver
+                ? "border-orange-400 bg-orange-50"
+                : "border-orange-300 bg-gradient-to-br from-orange-50 to-orange-100 hover:border-orange-400 hover:bg-orange-100",
             )}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
           >
-            <Upload
-              className={cn(
-                "mx-auto h-16 w-16 mb-6 transition-all duration-300",
-                isDragOver ? "text-orange-500 scale-110" : "text-gray-400",
-              )}
-            />
-            <h3 className="text-2xl font-semibold text-gray-900 mb-3">
-              Drop your syllabi here
-            </h3>
-            <p className="text-gray-600 mb-6 text-lg">
-              or click to browse files
+            <div className="w-16 h-16 mx-auto mb-4 bg-orange-200 rounded-full flex items-center justify-center">
+              <Upload className="w-8 h-8 text-orange-600" />
+            </div>
+            <p className="text-orange-800 mb-2 text-lg font-medium">
+              Click here to upload your file or drag and drop.
             </p>
-            <Button
-              onClick={() => fileInputRef.current?.click()}
-              className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-3 text-lg font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-            >
-              Browse Files
-            </Button>
+            <p className="text-orange-600 text-sm">
+              Supported Format: PDF files, up to 10MB each
+            </p>
             <input
               ref={fileInputRef}
               type="file"
@@ -371,16 +412,37 @@ export default function UploadClient() {
               onChange={handleFileSelect}
               className="hidden"
             />
-            <p className="text-sm text-gray-500 mt-6">
-              Currently supports PDF files up to 10MB each
-            </p>
           </div>
         </div>
+
+        {/* Process Files Button */}
+        {canProcess && (
+          <div className="mb-12 text-center">
+            <Button
+              onClick={processFiles}
+              disabled={!canProcess}
+              className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-12 py-4 text-lg font-semibold rounded-2xl shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 border-0"
+            >
+              {isProcessing ? (
+                <>
+                  <Loader2 className="w-6 h-6 mr-3 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  Process {successfulFiles.length} file
+                  {successfulFiles.length !== 1 ? "s" : ""}
+                  <ArrowUpRight className="w-6 h-6 ml-3" />
+                </>
+              )}
+            </Button>
+          </div>
+        )}
 
         {/* File List */}
         {files.length > 0 && (
           <div className="mb-12">
-            <Card className="shadow-lg border-0">
+            <Card className="shadow-lg border-0 border-orange-200">
               <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-t-xl">
                 <CardTitle className="text-xl flex items-center gap-2">
                   <FileText className="w-6 h-6" />
@@ -390,13 +452,13 @@ export default function UploadClient() {
                   {files.length} file{files.length !== 1 ? "s" : ""} uploaded
                 </CardDescription>
               </CardHeader>
-              <CardContent className="p-6">
+              <CardContent className="p-6 bg-orange-50">
                 <div className="space-y-4">
                   {files.map((file) => (
                     <div
                       key={file.id}
                       className={cn(
-                        "flex items-center justify-between p-4 bg-gray-50 rounded-xl border transition-all duration-300 hover:shadow-md",
+                        "flex items-center justify-between p-4 bg-white rounded-xl border border-orange-200 transition-all duration-300 hover:shadow-md hover:border-orange-300",
                         file.status === "success" && "bounce-in",
                       )}
                     >
@@ -406,7 +468,7 @@ export default function UploadClient() {
                           <p className="text-sm font-medium text-gray-900 truncate">
                             {file.file.name}
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-orange-600">
                             {formatFileSize(file.file.size)}
                           </p>
                         </div>
@@ -415,13 +477,13 @@ export default function UploadClient() {
                       <div className="flex items-center space-x-4">
                         {file.status === "uploading" && (
                           <div className="flex items-center space-x-3">
-                            <div className="w-32 bg-gray-200 rounded-full h-2">
+                            <div className="w-32 bg-orange-200 rounded-full h-2">
                               <div
                                 className="bg-orange-500 h-2 rounded-full transition-all duration-300"
                                 style={{ width: `${file.progress}%` }}
                               />
                             </div>
-                            <span className="text-xs text-gray-500 w-12">
+                            <span className="text-xs text-orange-600 w-12">
                               {Math.round(file.progress)}%
                             </span>
                           </div>
@@ -462,84 +524,56 @@ export default function UploadClient() {
           </div>
         )}
 
-        {/* Extracted Dates Results */}
-        {showResults && extractedDates.length > 0 && (
+        {/* Recurring Class Selection */}
+        {showRecurringSelection && (
           <div className="mb-12">
-            <Card className="shadow-lg border-0">
+            <Card className="shadow-lg border-0 border-orange-200">
               <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-t-xl">
                 <CardTitle className="text-xl flex items-center gap-2">
                   <Calendar className="w-6 h-6" />
-                  Extracted Important Dates
+                  Multiple Class Times Found
                 </CardTitle>
                 <CardDescription className="text-orange-100">
-                  {extractedDates.length} important dates found in your syllabus
+                  Select which class sections you want to include in your
+                  calendar
                 </CardDescription>
               </CardHeader>
-              <CardContent className="p-6">
+              <CardContent className="p-6 bg-orange-50">
                 <div className="space-y-4">
-                  {extractedDates.map((dateItem) => (
+                  {recurringClassOptions.map((option) => (
                     <div
-                      key={dateItem.id}
-                      className="flex items-start justify-between p-4 bg-gray-50 rounded-xl border hover:shadow-md transition-all duration-300"
+                      key={option.id}
+                      className="flex items-center space-x-3 p-4 bg-white rounded-xl border border-orange-200"
                     >
-                      <div className="flex items-start space-x-4 flex-1">
-                        <div className="text-2xl">
-                          {getDateTypeIcon(dateItem.type)}
+                      <input
+                        type="checkbox"
+                        id={option.id}
+                        checked={option.selected}
+                        onChange={() =>
+                          handleRecurringClassSelection(option.id)
+                        }
+                        className="w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 rounded focus:ring-orange-500"
+                      />
+                      <label
+                        htmlFor={option.id}
+                        className="flex-1 cursor-pointer"
+                      >
+                        <div className="font-medium text-gray-900">
+                          {option.title}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-semibold text-gray-900">
-                              {dateItem.title}
-                            </h4>
-                            <span
-                              className={cn(
-                                "px-2 py-1 rounded-full text-xs font-medium capitalize",
-                                getDateTypeColor(dateItem.type),
-                              )}
-                            >
-                              {dateItem.type}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <p className="text-sm font-medium text-orange-600">
-                              {formatDate(dateItem.date)}
-                            </p>
-                            {dateItem.time && (
-                              <span className="text-sm text-gray-500">
-                                at {dateItem.time}
-                              </span>
-                            )}
-                          </div>
-                          {dateItem.recurrence && (
-                            <p className="text-sm text-blue-600 mb-1">
-                              {dateItem.recurrence}
-                            </p>
-                          )}
-                          {dateItem.description && (
-                            <p className="text-sm text-gray-600">
-                              {dateItem.description}
-                            </p>
-                          )}
+                        <div className="text-sm text-orange-600">
+                          Section {option.sectionNumber} - {option.time}
                         </div>
-                      </div>
+                      </label>
                     </div>
                   ))}
                 </div>
-                <div className="mt-6 flex gap-3">
-                  <Button className="bg-orange-500 hover:bg-orange-600 text-white">
-                    Export to Google Calendar
-                  </Button>
+                <div className="mt-6">
                   <Button
-                    variant="outline"
-                    className="border-orange-500 text-orange-600 hover:bg-orange-50"
+                    onClick={confirmRecurringSelection}
+                    className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-8 py-3 rounded-xl"
                   >
-                    Download .ics File
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="border-orange-500 text-orange-600 hover:bg-orange-50"
-                  >
-                    Export to Apple Calendar
+                    Confirm Selection
                   </Button>
                 </div>
               </CardContent>
@@ -547,17 +581,104 @@ export default function UploadClient() {
           </div>
         )}
 
+        {/* Extracted Dates Results */}
+        {showResults &&
+          extractedDates.length > 0 &&
+          !showRecurringSelection && (
+            <div className="mb-12">
+              <Card className="shadow-lg border-0 border-orange-200">
+                <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-t-xl">
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    <Calendar className="w-6 h-6" />
+                    Extracted Important Dates
+                  </CardTitle>
+                  <CardDescription className="text-orange-100">
+                    {extractedDates.length} important dates found in your
+                    syllabus
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-6 bg-orange-50">
+                  <div className="space-y-4">
+                    {extractedDates.map((dateItem) => (
+                      <div
+                        key={dateItem.id}
+                        className="flex items-start justify-between p-4 bg-white rounded-xl border border-orange-200 hover:shadow-md hover:border-orange-300 transition-all duration-300"
+                      >
+                        <div className="flex items-start space-x-4 flex-1">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-semibold text-gray-900">
+                                {dateItem.title}
+                              </h4>
+                              <span
+                                className={cn(
+                                  "px-2 py-1 rounded-full text-xs font-medium capitalize",
+                                  getDateTypeColor(dateItem.type),
+                                )}
+                              >
+                                {dateItem.type}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="text-sm font-medium text-orange-600">
+                                {dateItem.date
+                                  ? formatDate(dateItem.date)
+                                  : dateItem.recurrence}
+                              </p>
+                              {dateItem.time && (
+                                <span className="text-sm text-gray-500">
+                                  at {dateItem.time}
+                                </span>
+                              )}
+                            </div>
+                            {dateItem.recurrence && dateItem.date && (
+                              <p className="text-sm text-blue-600 mb-1">
+                                {dateItem.recurrence}
+                              </p>
+                            )}
+                            {dateItem.description && (
+                              <p className="text-sm text-gray-600">
+                                {dateItem.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-6 flex gap-3">
+                    <Button className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl">
+                      Export to Google Calendar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="border-orange-500 text-orange-600 hover:bg-orange-50 rounded-xl"
+                    >
+                      Download .ics File
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="border-orange-500 text-orange-600 hover:bg-orange-50 rounded-xl"
+                    >
+                      Export to Apple Calendar
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
         {/* How It Works & Supported Formats - Side by Side */}
         <div className="grid md:grid-cols-2 gap-8">
           {/* How It Works */}
-          <Card className="shadow-lg border-0 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+          <Card className="shadow-lg border-0 border-orange-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
             <CardHeader className="bg-gradient-to-r from-orange-400 to-orange-500 text-white rounded-t-xl">
               <CardTitle className="text-xl flex items-center gap-2">
                 <Calendar className="w-6 h-6" />
                 How It Works
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-6">
+            <CardContent className="p-6 bg-orange-50">
               <div className="space-y-4">
                 <div className="flex items-start space-x-3">
                   <div className="w-8 h-8 bg-orange-200 rounded-full flex items-center justify-center font-bold text-orange-700 text-sm flex-shrink-0">
@@ -568,7 +689,7 @@ export default function UploadClient() {
                       Upload Your Syllabus
                     </h4>
                     <p className="text-sm text-gray-600">
-                      Drag and drop your PDF syllabus or browse to select it
+                      Drag and drop your PDF syllabus or click to select it
                     </p>
                   </div>
                 </div>
@@ -603,53 +724,41 @@ export default function UploadClient() {
           </Card>
 
           {/* Supported Formats */}
-          <Card className="shadow-lg border-0 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-            <CardHeader className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-t-xl">
+          <Card className="shadow-lg border-0 border-orange-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+            <CardHeader className="bg-gradient-to-r from-orange-400 to-orange-500 text-white rounded-t-xl">
               <CardTitle className="text-xl flex items-center gap-2">
                 <FileText className="w-6 h-6" />
                 Supported Formats
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-6">
+            <CardContent className="p-6 bg-orange-50">
               <div className="space-y-4">
                 <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-                    <FileText className="w-5 h-5 text-red-500" />
+                  <div className="w-10 h-10 bg-orange-200 rounded-lg flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-orange-600" />
                   </div>
                   <div>
                     <h4 className="font-semibold text-gray-900">
                       PDF Documents
                     </h4>
-                    <p className="text-sm text-gray-600">
-                      Most common syllabus format
-                    </p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <FileText className="w-5 h-5 text-blue-500" />
+                  <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-orange-500" />
                   </div>
                   <div>
-                    <h4 className="font-semibold text-gray-900">Coming Soon</h4>
-                    <p className="text-sm text-gray-600">
-                      Word documents and text files
-                    </p>
+                    <h4 className="font-semibold text-gray-900">
+                      TXT, Word Documents
+                    </h4>
+                    <p className="text-sm text-orange-600">Coming soon</p>
                   </div>
                 </div>
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                    <FileText className="w-5 h-5 text-gray-500" />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900">Coming Soon</h4>
-                    <p className="text-sm text-gray-600">Plain text format</p>
-                  </div>
-                </div>
-                <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                  <p className="text-xs text-gray-600">
+                <div className="flex items-center space-x-3"></div>
+                <div className="mt-4 p-3 bg-orange-100 rounded-lg">
+                  <p className="text-xs text-orange-700">
                     <strong>Maximum file size:</strong> 10MB per file
                     <br />
-                    <strong>Accuracy rate:</strong> 99.5% with AI processing
                   </p>
                 </div>
               </div>

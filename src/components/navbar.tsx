@@ -1,25 +1,52 @@
+"use client";
+
 import Link from "next/link";
-import { createClient } from "../../supabase/server";
+import { usePathname } from "next/navigation";
+import { createClient } from "../../supabase/client";
 import { Button } from "./ui/button";
 import { User, UserCircle } from "lucide-react";
 import UserProfile from "./user-profile";
+import { useEffect, useState } from "react";
 
-export default async function Navbar() {
-  const supabase = createClient();
+export default function Navbar() {
+  const pathname = usePathname();
+  const [user, setUser] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
+  const isUploadPage = pathname === "/upload";
 
-  const {
-    data: { user },
-  } = await (await supabase).auth.getUser();
+  useEffect(() => {
+    const getUser = async () => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-  let userProfile = null;
-  if (user) {
-    const { data: profile } = await (await supabase)
-      .from("users")
-      .select("*")
-      .eq("user_id", user.id)
-      .single();
-    userProfile = profile;
-  }
+      setUser(user);
+
+      if (user) {
+        const { data: profile } = await supabase
+          .from("users")
+          .select("*")
+          .eq("user_id", user.id)
+          .single();
+        setUserProfile(profile);
+      }
+    };
+
+    getUser();
+  }, []);
+
+  const scrollToSection = (sectionId: string) => {
+    if (pathname !== "/") {
+      window.location.href = `/#${sectionId}`;
+      return;
+    }
+
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth" });
+    }
+  };
 
   return (
     <nav className="w-full border-b border-gray-100 bg-white/80 backdrop-blur-md py-3 sticky top-0 z-50">
@@ -34,43 +61,45 @@ export default async function Navbar() {
 
         {/* Navigation Links */}
         <div className="hidden md:flex items-center space-x-8">
-          <a
-            href="#how-it-works"
-            className="text-sm font-medium text-gray-700 hover:text-orange-600 transition-colors"
+          <button
+            onClick={() => scrollToSection("how-it-works")}
+            className="text-sm font-medium text-gray-700 hover:text-orange-600 transition-colors cursor-pointer"
           >
             How It Works
-          </a>
-          <a
-            href="#features"
-            className="text-sm font-medium text-gray-700 hover:text-orange-600 transition-colors"
+          </button>
+          <button
+            onClick={() => scrollToSection("features")}
+            className="text-sm font-medium text-gray-700 hover:text-orange-600 transition-colors cursor-pointer"
           >
             Features
-          </a>
-          <a
-            href="#faq"
-            className="text-sm font-medium text-gray-700 hover:text-orange-600 transition-colors"
+          </button>
+          <button
+            onClick={() => scrollToSection("faq")}
+            className="text-sm font-medium text-gray-700 hover:text-orange-600 transition-colors cursor-pointer"
           >
             FAQ
-          </a>
-          <a
-            href="#contact"
-            className="text-sm font-medium text-gray-700 hover:text-orange-600 transition-colors"
+          </button>
+          <button
+            onClick={() => scrollToSection("contact")}
+            className="text-sm font-medium text-gray-700 hover:text-orange-600 transition-colors cursor-pointer"
           >
             Contact
-          </a>
+          </button>
         </div>
 
         <div className="flex gap-3 items-center">
           {user ? (
             <>
-              <Link
-                href="/upload"
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
-              >
-                <Button variant="ghost" className="hover:bg-orange-50">
-                  Upload
-                </Button>
-              </Link>
+              {!isUploadPage && (
+                <Link
+                  href="/upload"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+                >
+                  <Button variant="ghost" className="hover:bg-orange-50">
+                    Upload
+                  </Button>
+                </Link>
+              )}
               <UserProfile user={user} userProfile={userProfile} />
             </>
           ) : (
