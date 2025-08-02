@@ -68,6 +68,9 @@ export default function UploadClient() {
   >([]);
   const [showRecurringSelection, setShowRecurringSelection] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const removeExtractedDate = (id: string) => {
+    setExtractedDates((prev) => prev.filter((event) => event.id !== id));
+  };
 
   const acceptedFileTypes = [".pdf", "application/pdf"];
 
@@ -607,9 +610,7 @@ export default function UploadClient() {
                         <div className="flex items-start space-x-4 flex-1">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
-                              <h4 className="font-semibold text-gray-900">
-                                {dateItem.title}
-                              </h4>
+                              <h4 className="font-semibold text-gray-900">{dateItem.title}</h4>
                               <span
                                 className={cn(
                                   "px-2 py-1 rounded-full text-xs font-medium capitalize",
@@ -621,9 +622,7 @@ export default function UploadClient() {
                             </div>
                             <div className="flex items-center gap-2 mb-1">
                               <p className="text-sm font-medium text-orange-600">
-                                {dateItem.date
-                                  ? formatDate(dateItem.date)
-                                  : dateItem.recurrence}
+                                {dateItem.date ? formatDate(dateItem.date) : dateItem.recurrence}
                               </p>
                               {dateItem.time && (
                                 <span className="text-sm text-gray-500">
@@ -632,19 +631,26 @@ export default function UploadClient() {
                               )}
                             </div>
                             {dateItem.recurrence && dateItem.date && (
-                              <p className="text-sm text-blue-600 mb-1">
-                                {dateItem.recurrence}
-                              </p>
+                              <p className="text-sm text-blue-600 mb-1">{dateItem.recurrence}</p>
                             )}
                             {dateItem.description && (
-                              <p className="text-sm text-gray-600">
-                                {dateItem.description}
-                              </p>
+                              <p className="text-sm text-gray-600">{dateItem.description}</p>
                             )}
                           </div>
                         </div>
+
+                        {/* ❌ Remove Button */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeExtractedDate(dateItem.id)}
+                          className="text-gray-400 hover:text-red-500 hover:bg-red-50"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
                       </div>
                     ))}
+
                   </div>
                   <div className="mt-6 flex gap-3">
                     <Button className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl">

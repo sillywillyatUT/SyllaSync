@@ -4,14 +4,23 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient } from "../../supabase/client";
 import { Button } from "./ui/button";
-import { User, UserCircle } from "lucide-react";
+import { UserCircle } from "lucide-react";
 import UserProfile from "./user-profile";
 import { useEffect, useState } from "react";
+import type { User } from "@supabase/supabase-js";
+
+interface UserProfileData {
+  id: number;
+  user_id: string;
+  name?: string;
+  email?: string;
+  // Add any other fields that exist in your `users` table
+}
 
 export default function Navbar() {
   const pathname = usePathname();
-  const [user, setUser] = useState(null);
-  const [userProfile, setUserProfile] = useState(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfileData | null>(null);
   const isUploadPage = pathname === "/upload";
 
   useEffect(() => {
@@ -29,6 +38,7 @@ export default function Navbar() {
           .select("*")
           .eq("user_id", user.id)
           .single();
+
         setUserProfile(profile);
       }
     };
