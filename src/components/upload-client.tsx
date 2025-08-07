@@ -187,7 +187,7 @@ export default function UploadClient() {
           const contentType = response.headers.get("content-type") || "";
           if (!response.ok || !contentType.includes("application/json")) {
             const text = await response.text();
-            console.error("Unexpected response:", text); // 👈 logs actual HTML or error
+            console.error("Unexpected response:", text);
             throw new Error(
               `Unexpected response (${response.status}): ${text.slice(0, 200)}`,
             );
@@ -369,6 +369,68 @@ export default function UploadClient() {
     setShowRecurringSelection(false);
   };
 
+  const exportToGoogleCalendar = async () => {
+    try {
+      const response = await fetch("/api/export-google-calendar", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ dates: extractedDates }),
+      });
+
+      const result = await response.json();
+
+      if (result.success && result.urls) {
+        // Open each Google Calendar URL in a new tab
+        result.urls.forEach((url: string, index: number) => {
+          setTimeout(() => {
+            window.open(url, "_blank");
+          }, index * 500); // Stagger the opening to avoid popup blockers
+        });
+      } else {
+        alert("Failed to generate Google Calendar links");
+      }
+    } catch (error) {
+      console.error("Error exporting to Google Calendar:", error);
+      alert("Error exporting to Google Calendar");
+    }
+  };
+
+  const downloadICSFile = async () => {
+    try {
+      const response = await fetch("/api/generate-ics", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ dates: extractedDates }),
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "syllabus-calendar.ics";
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        alert("Failed to generate ICS file");
+      }
+    } catch (error) {
+      console.error("Error downloading ICS file:", error);
+      alert("Error downloading ICS file");
+    }
+  };
+
+  const exportToAppleCalendar = () => {
+    // Apple Calendar uses the same ICS format, so we can reuse the download function
+    downloadICSFile();
+  };
+
   return (
     <>
       {/* Hero Section */}
@@ -439,6 +501,37 @@ export default function UploadClient() {
                 </>
               )}
             </Button>
+          </div>
+        )}
+
+        {/* Processing Loading Bar */}
+        {isProcessing && (
+          <div className="mb-12">
+            <Card className="shadow-lg border-0 border-orange-200">
+              <CardContent className="p-6 bg-orange-50">
+                <div className="text-center">
+                  <div className="flex items-center justify-center mb-4">
+                    <Loader2 className="w-8 h-8 mr-3 animate-spin text-orange-600" />
+                    <h3 className="text-lg font-semibold text-orange-800">
+                      Processing Your Syllabus
+                    </h3>
+                  </div>
+                  <p className="text-orange-600 mb-4">
+                    Our AI is extracting important dates and events from your
+                    document...
+                  </p>
+                  <div className="w-full bg-orange-200 rounded-full h-3">
+                    <div
+                      className="bg-gradient-to-r from-orange-500 to-orange-600 h-3 rounded-full animate-pulse"
+                      style={{ width: "70%" }}
+                    ></div>
+                  </div>
+                  <p className="text-sm text-orange-500 mt-2">
+                    This usually takes 10-30 seconds
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
 
@@ -610,7 +703,9 @@ export default function UploadClient() {
                         <div className="flex items-start space-x-4 flex-1">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
-                              <h4 className="font-semibold text-gray-900">{dateItem.title}</h4>
+                              <h4 className="font-semibold text-gray-900">
+                                {dateItem.title}
+                              </h4>
                               <span
                                 className={cn(
                                   "px-2 py-1 rounded-full text-xs font-medium capitalize",
@@ -622,7 +717,9 @@ export default function UploadClient() {
                             </div>
                             <div className="flex items-center gap-2 mb-1">
                               <p className="text-sm font-medium text-orange-600">
-                                {dateItem.date ? formatDate(dateItem.date) : dateItem.recurrence}
+                                {dateItem.date
+                                  ? formatDate(dateItem.date)
+                                  : dateItem.recurrence}
                               </p>
                               {dateItem.time && (
                                 <span className="text-sm text-gray-500">
@@ -631,10 +728,14 @@ export default function UploadClient() {
                               )}
                             </div>
                             {dateItem.recurrence && dateItem.date && (
-                              <p className="text-sm text-blue-600 mb-1">{dateItem.recurrence}</p>
+                              <p className="text-sm text-blue-600 mb-1">
+                                {dateItem.recurrence}
+                              </p>
                             )}
                             {dateItem.description && (
-                              <p className="text-sm text-gray-600">{dateItem.description}</p>
+                              <p className="text-sm text-gray-600">
+                                {dateItem.description}
+                              </p>
                             )}
                           </div>
                         </div>
@@ -650,19 +751,23 @@ export default function UploadClient() {
                         </Button>
                       </div>
                     ))}
-
                   </div>
                   <div className="mt-6 flex gap-3">
-                    <Button className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl">
+                    <Button
+                      onClick={exportToGoogleCalendar}
+                      className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl"
+                    >
                       Export to Google Calendar
                     </Button>
                     <Button
+                      onClick={downloadICSFile}
                       variant="outline"
                       className="border-orange-500 text-orange-600 hover:bg-orange-50 rounded-xl"
                     >
                       Download .ics File
                     </Button>
                     <Button
+                      onClick={exportToAppleCalendar}
                       variant="outline"
                       className="border-orange-500 text-orange-600 hover:bg-orange-50 rounded-xl"
                     >
