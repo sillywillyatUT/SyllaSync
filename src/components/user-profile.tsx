@@ -113,7 +113,9 @@ export default function UserProfile({ user, userProfile }: UserProfileProps) {
         <DropdownMenuItem
           onClick={async () => {
             await supabase.auth.signOut();
+
             router.push("/");
+            window.location.href = "/";
           }}
         >
           Sign out
