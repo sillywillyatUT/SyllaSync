@@ -67,6 +67,7 @@ export default function UploadClient() {
     RecurringClassOption[]
   >([]);
   const [showRecurringSelection, setShowRecurringSelection] = useState(false);
+  const [isExportingToGoogle, setIsExportingToGoogle] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const removeExtractedDate = (id: string) => {
     setExtractedDates((prev) => prev.filter((event) => event.id !== id));
@@ -370,30 +371,56 @@ export default function UploadClient() {
   };
 
   const exportToGoogleCalendar = async () => {
+    setIsExportingToGoogle(true);
     try {
+      // Get the current user's session to access Google tokens
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.provider_token) {
+        alert("Please sign in with Google to export to Google Calendar");
+        return;
+      }
+
       const response = await fetch("/api/export-google-calendar", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ dates: extractedDates }),
+        body: JSON.stringify({
+          dates: extractedDates,
+          accessToken: session.provider_token,
+        }),
       });
 
       const result = await response.json();
 
-      if (result.success && result.urls) {
-        // Open each Google Calendar URL in a new tab
-        result.urls.forEach((url: string, index: number) => {
-          setTimeout(() => {
-            window.open(url, "_blank");
-          }, index * 500); // Stagger the opening to avoid popup blockers
-        });
+      if (result.success) {
+        const successCount = result.createdEvents?.length || 0;
+        const errorCount = result.errors?.length || 0;
+
+        if (errorCount > 0) {
+          alert(
+            `Successfully created ${successCount} events in Google Calendar. ${errorCount} events failed to create.`,
+          );
+        } else {
+          alert(
+            `Successfully created ${successCount} events in Google Calendar!`,
+          );
+        }
       } else {
-        alert("Failed to generate Google Calendar links");
+        alert(
+          "Failed to create Google Calendar events: " +
+            (result.error || "Unknown error"),
+        );
       }
     } catch (error) {
       console.error("Error exporting to Google Calendar:", error);
       alert("Error exporting to Google Calendar");
+    } finally {
+      setIsExportingToGoogle(false);
     }
   };
 
@@ -755,9 +782,17 @@ export default function UploadClient() {
                   <div className="mt-6 flex gap-3">
                     <Button
                       onClick={exportToGoogleCalendar}
+                      disabled={isExportingToGoogle}
                       className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl"
                     >
-                      Export to Google Calendar
+                      {isExportingToGoogle ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Exporting...
+                        </>
+                      ) : (
+                        "Export to Google Calendar"
+                      )}
                     </Button>
                     <Button
                       onClick={downloadICSFile}

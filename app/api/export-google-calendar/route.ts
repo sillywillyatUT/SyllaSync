@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { google } from "googleapis";
+import { createClient } from "../../../supabase/server";
 
 interface ExtractedDate {
   id: string;
@@ -11,7 +13,10 @@ interface ExtractedDate {
   location?: string;
 }
 
-function formatDateForGoogle(dateString: string, timeString?: string): string {
+function formatDateForGoogle(
+  dateString: string,
+  timeString?: string,
+): { start: string; end: string } {
   const date = new Date(dateString);
 
   if (timeString) {
@@ -26,64 +31,176 @@ function formatDateForGoogle(dateString: string, timeString?: string): string {
     }
 
     date.setHours(hour24, parseInt(minutes) || 0, 0, 0);
+
+    // Create end time (1 hour later for events with time)
+    const endDate = new Date(date);
+    endDate.setHours(endDate.getHours() + 1);
+
+    return {
+      start: date.toISOString(),
+      end: endDate.toISOString(),
+    };
+  } else {
+    // All-day event
+    const startDate = new Date(date);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(date);
+    endDate.setHours(23, 59, 59, 999);
+
+    return {
+      start: startDate.toISOString().split("T")[0],
+      end: endDate.toISOString().split("T")[0],
+    };
+  }
+}
+
+function generateRecurrenceRule(recurrence: string): string[] | undefined {
+  if (!recurrence) return undefined;
+
+  const lower = recurrence.toLowerCase();
+
+  if (lower.includes("every monday, wednesday, and friday")) {
+    return ["RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR"];
+  }
+  if (lower.includes("every tuesday and thursday")) {
+    return ["RRULE:FREQ=WEEKLY;BYDAY=TU,TH"];
+  }
+  if (lower.includes("every monday")) {
+    return ["RRULE:FREQ=WEEKLY;BYDAY=MO"];
+  }
+  if (lower.includes("every tuesday")) {
+    return ["RRULE:FREQ=WEEKLY;BYDAY=TU"];
+  }
+  if (lower.includes("every wednesday")) {
+    return ["RRULE:FREQ=WEEKLY;BYDAY=WE"];
+  }
+  if (lower.includes("every thursday")) {
+    return ["RRULE:FREQ=WEEKLY;BYDAY=TH"];
+  }
+  if (lower.includes("every friday")) {
+    return ["RRULE:FREQ=WEEKLY;BYDAY=FR"];
+  }
+  if (lower.includes("weekly")) {
+    return ["RRULE:FREQ=WEEKLY"];
   }
 
-  return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+  return undefined;
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { dates }: { dates: ExtractedDate[] } = await request.json();
+    const {
+      dates,
+      accessToken,
+    }: { dates: ExtractedDate[]; accessToken: string } = await request.json();
 
     if (!dates || dates.length === 0) {
       return NextResponse.json({ error: "No dates provided" }, { status: 400 });
     }
 
-    // Create Google Calendar URLs for each event
-    const googleCalendarUrls = dates
-      .map((dateItem) => {
-        if (!dateItem.date && !dateItem.recurrence) return null;
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: "No access token provided" },
+        { status: 400 },
+      );
+    }
 
-        const params = new URLSearchParams();
-        params.set("action", "TEMPLATE");
-        params.set("text", dateItem.title);
+    // Initialize Google Calendar API
+    const auth = new google.auth.OAuth2();
+    auth.setCredentials({ access_token: accessToken });
 
-        if (dateItem.date) {
-          const startDate = formatDateForGoogle(dateItem.date, dateItem.time);
-          const endDate = formatDateForGoogle(dateItem.date, dateItem.time);
-          params.set("dates", `${startDate}/${endDate}`);
-        }
+    const calendar = google.calendar({ version: "v3", auth });
 
-        if (dateItem.description) {
-          params.set(
-            "details",
-            `${dateItem.description} (Type: ${dateItem.type})`,
-          );
-        }
+    const createdEvents = [];
+    const errors = [];
+
+    // Create events in Google Calendar
+    for (const dateItem of dates) {
+      try {
+        if (!dateItem.date && !dateItem.recurrence) continue;
+
+        let eventData: any = {
+          summary: dateItem.title,
+          description: `${dateItem.description || ""} (Type: ${dateItem.type})`,
+        };
 
         if (dateItem.location) {
-          params.set("location", dateItem.location);
+          eventData.location = dateItem.location;
+        }
+
+        if (dateItem.date) {
+          const { start, end } = formatDateForGoogle(
+            dateItem.date,
+            dateItem.time,
+          );
+
+          if (dateItem.time) {
+            eventData.start = { dateTime: start };
+            eventData.end = { dateTime: end };
+          } else {
+            eventData.start = { date: start };
+            eventData.end = { date: end };
+          }
+        } else if (dateItem.recurrence) {
+          // For recurring events without specific date, start from next Monday
+          const nextMonday = new Date();
+          nextMonday.setDate(
+            nextMonday.getDate() + ((1 + 7 - nextMonday.getDay()) % 7),
+          );
+
+          const { start, end } = formatDateForGoogle(
+            nextMonday.toISOString(),
+            dateItem.time,
+          );
+
+          if (dateItem.time) {
+            eventData.start = { dateTime: start };
+            eventData.end = { dateTime: end };
+          } else {
+            eventData.start = { date: start };
+            eventData.end = { date: end };
+          }
         }
 
         if (dateItem.recurrence) {
-          const recurrenceText = `Recurring: ${dateItem.recurrence}`;
-          const existingDetails = params.get("details") || "";
-          params.set("details", existingDetails + "\n" + recurrenceText);
+          const recurrenceRule = generateRecurrenceRule(dateItem.recurrence);
+          if (recurrenceRule) {
+            eventData.recurrence = recurrenceRule;
+          }
         }
 
-        return `https://calendar.google.com/calendar/render?${params.toString()}`;
-      })
-      .filter(Boolean);
+        const response = await calendar.events.insert({
+          calendarId: "primary",
+          requestBody: eventData,
+        });
+
+        createdEvents.push({
+          id: dateItem.id,
+          title: dateItem.title,
+          googleEventId: response.data.id,
+          htmlLink: response.data.htmlLink,
+        });
+      } catch (eventError) {
+        console.error(`Error creating event ${dateItem.title}:`, eventError);
+        errors.push({
+          id: dateItem.id,
+          title: dateItem.title,
+          error:
+            eventError instanceof Error ? eventError.message : "Unknown error",
+        });
+      }
+    }
 
     return NextResponse.json({
       success: true,
-      urls: googleCalendarUrls,
-      message: "Google Calendar URLs generated successfully",
+      createdEvents,
+      errors,
+      message: `Successfully created ${createdEvents.length} events in Google Calendar${errors.length > 0 ? ` (${errors.length} failed)` : ""}`,
     });
   } catch (error) {
-    console.error("Error generating Google Calendar URLs:", error);
+    console.error("Error creating Google Calendar events:", error);
     return NextResponse.json(
-      { error: "Failed to generate Google Calendar URLs" },
+      { error: "Failed to create Google Calendar events" },
       { status: 500 },
     );
   }
