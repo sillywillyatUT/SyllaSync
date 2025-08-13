@@ -380,7 +380,19 @@ export default function UploadClient() {
       } = await supabase.auth.getSession();
 
       if (!session?.provider_token) {
-        alert("Please sign in with Google to export to Google Calendar");
+        // Redirect to Google sign-in if not authenticated
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            scopes: "https://www.googleapis.com/auth/calendar",
+            redirectTo: `${window.location.origin}/upload?export=google`,
+          },
+        });
+
+        if (error) {
+          console.error("Error signing in with Google:", error);
+          alert("Failed to sign in with Google. Please try again.");
+        }
         return;
       }
 
@@ -403,11 +415,11 @@ export default function UploadClient() {
 
         if (errorCount > 0) {
           alert(
-            `Successfully created ${successCount} events in Google Calendar. ${errorCount} events failed to create.`,
+            `🎉 Successfully created ${successCount} events in Google Calendar! ${errorCount} events failed to create. Check your Google Calendar to view the events.`,
           );
         } else {
           alert(
-            `Successfully created ${successCount} events in Google Calendar!`,
+            `🎉 Successfully created ${successCount} events in Google Calendar! Check your Google Calendar to view all your syllabus events.`,
           );
         }
       } else {
@@ -418,7 +430,7 @@ export default function UploadClient() {
       }
     } catch (error) {
       console.error("Error exporting to Google Calendar:", error);
-      alert("Error exporting to Google Calendar");
+      alert("Error exporting to Google Calendar. Please try again.");
     } finally {
       setIsExportingToGoogle(false);
     }
