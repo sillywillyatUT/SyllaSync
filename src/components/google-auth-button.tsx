@@ -2,12 +2,10 @@
 
 import { Button } from "./ui/button";
 import { createClient } from "../../supabase/client";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function GoogleAuthButton() {
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
   const supabase = createClient();
 
   const handleGoogleSignIn = async () => {
@@ -17,9 +15,15 @@ export default function GoogleAuthButton() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
+          scopes: "https://www.googleapis.com/auth/calendar",
+          queryParams: {
+            access_type: "offline", //gets a refresh token
+            prompt: "consent" // ensures refresh token is returned every time
+          },
           redirectTo: `${window.location.origin}/auth/callback?redirect_to=${encodeURIComponent("/upload")}`,
         },
       });
+
 
       if (error) {
         console.error("Error signing in with Google:", error.message);

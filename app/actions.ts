@@ -5,77 +5,69 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "../supabase/server";
 
+// -------------------- SIGN UP --------------------
 export const signUpAction = async (formData: FormData) => {
   const email = formData.get("email")?.toString();
   const password = formData.get("password")?.toString();
   const fullName = formData.get("full_name")?.toString() || "";
-  const redirectTo = formData.get("redirect_to")?.toString();
   const supabase = await createClient();
-  const origin = headers().get("origin");
 
   if (!email || !password) {
     return encodedRedirect(
       "error",
       "/sign-up",
-      "Email and password are required",
+      "Email and password are required"
     );
   }
 
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      emailRedirectTo: `${origin}/auth/callback${redirectTo ? `?redirect_to=${encodeURIComponent(redirectTo)}` : ""}`,
-      data: {
-        full_name: fullName,
-        email: email,
-      },
+      emailRedirectTo: undefined,
+      data: { full_name: fullName, email },
     },
   });
-
-  console.log("After signUp", error);
 
   if (error) {
     console.error(error.code + " " + error.message);
     return encodedRedirect("error", "/sign-up", error.message);
   }
 
-  // User creation will be handled by the database trigger
-  // No need to manually insert into users table here
-
-  return encodedRedirect(
-    "success",
-    "/sign-up",
-    "Thanks for signing up! Please check your email for a verification link.",
-  );
-};
-
-export const signInAction = async (formData: FormData) => {
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
-  const redirectTo = formData.get("redirect_to") as string;
-  const supabase = await createClient();
-
-  const { error } = await supabase.auth.signInWithPassword({
+  // Sign in immediately
+  const { error: signInError } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
+
+  if (signInError) {
+    return encodedRedirect("error", "/sign-in", signInError.message);
+  }
+
+  return redirect("/upload");
+};
+
+// -------------------- SIGN IN --------------------
+export const signInAction = async (formData: FormData) => {
+  const email = formData.get("email")?.toString() || "";
+  const password = formData.get("password")?.toString() || "";
+  const redirectTo = formData.get("redirect_to")?.toString() || "/dashboard";
+  const supabase = await createClient();
+
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
     return encodedRedirect("error", "/sign-in", error.message);
   }
 
-  return redirect(redirectTo || "/dashboard");
+  return redirect(redirectTo);
 };
 
+// -------------------- FORGOT PASSWORD --------------------
 export const forgotPasswordAction = async (formData: FormData) => {
   const email = formData.get("email")?.toString();
   const supabase = await createClient();
   const origin = headers().get("origin");
-  const callbackUrl = formData.get("callbackUrl")?.toString();
 
   if (!email) {
     return encodedRedirect("error", "/forgot-password", "Email is required");
@@ -87,67 +79,47 @@ export const forgotPasswordAction = async (formData: FormData) => {
 
   if (error) {
     console.error(error.message);
-    return encodedRedirect(
-      "error",
-      "/forgot-password",
-      "Could not reset password",
-    );
-  }
-
-  if (callbackUrl) {
-    return redirect(callbackUrl);
+    return encodedRedirect("error", "/forgot-password", "Could not reset password");
   }
 
   return encodedRedirect(
     "success",
     "/forgot-password",
-    "Check your email for a link to reset your password.",
+    "Check your email for a link to reset your password."
   );
 };
 
+// -------------------- RESET PASSWORD --------------------
 export const resetPasswordAction = async (formData: FormData) => {
   const supabase = await createClient();
-
-  const password = formData.get("password") as string;
-  const confirmPassword = formData.get("confirmPassword") as string;
+  const password = formData.get("password")?.toString() || "";
+  const confirmPassword = formData.get("confirmPassword")?.toString() || "";
 
   if (!password || !confirmPassword) {
-    encodedRedirect(
-      "error",
-      "/protected/reset-password",
-      "Password and confirm password are required",
-    );
+    return encodedRedirect("error", "/protected/reset-password", "Password and confirm password are required");
   }
 
   if (password !== confirmPassword) {
-    encodedRedirect(
-      "error",
-      "/dashboard/reset-password",
-      "Passwords do not match",
-    );
+    return encodedRedirect("error", "/dashboard/reset-password", "Passwords do not match");
   }
 
-  const { error } = await supabase.auth.updateUser({
-    password: password,
-  });
+  const { error } = await supabase.auth.updateUser({ password });
 
   if (error) {
-    encodedRedirect(
-      "error",
-      "/dashboard/reset-password",
-      "Password update failed",
-    );
+    return encodedRedirect("error", "/dashboard/reset-password", "Password update failed");
   }
 
-  encodedRedirect("success", "/protected/reset-password", "Password updated");
+  return encodedRedirect("success", "/protected/reset-password", "Password updated");
 };
 
+// -------------------- SIGN OUT --------------------
 export const signOutAction = async () => {
   const supabase = await createClient();
   await supabase.auth.signOut();
   return redirect("/sign-in");
 };
 
+// -------------------- GOOGLE OAUTH --------------------
 export const signInWithGoogleAction = async (formData?: FormData) => {
   const supabase = await createClient();
   const origin = headers().get("origin");
@@ -157,6 +129,11 @@ export const signInWithGoogleAction = async (formData?: FormData) => {
     provider: "google",
     options: {
       redirectTo: `${origin}/auth/callback?redirect_to=${encodeURIComponent(redirectTo)}`,
+      scopes: "openid email profile https://www.googleapis.com/auth/calendar",
+      queryParams: {
+        access_type: "offline",
+        prompt: "consent",
+      },
     },
   });
 
@@ -167,6 +144,7 @@ export const signInWithGoogleAction = async (formData?: FormData) => {
   return redirect(data.url);
 };
 
+// -------------------- CONTACT FORM --------------------
 export const contactFormAction = async (formData: FormData) => {
   const name = formData.get("name")?.toString();
   const email = formData.get("email")?.toString();
@@ -177,17 +155,9 @@ export const contactFormAction = async (formData: FormData) => {
     return { error: "All fields are required" };
   }
 
-  // In a real application, you would:
-  // 1. Save to database
-  // 2. Send email notification
-  // 3. Send confirmation email to user
-
+  // Example: log to console (replace with DB/email logic)
   console.log("Contact form submission:", {
-    name,
-    email,
-    subject,
-    message,
-    timestamp: new Date().toISOString(),
+    name, email, subject, message, timestamp: new Date().toISOString(),
   });
 
   return { success: "Message sent successfully! We'll get back to you soon." };

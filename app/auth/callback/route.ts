@@ -10,8 +10,11 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
-    if (!error && data.user) {
-      // Check if user exists in our users table, if not create them
+    if (!error && data.user && data.session) {
+      const providerToken = data.session.provider_token;
+      const refreshToken = data.session.refresh_token;
+
+      // Check if user exists in users table
       const { data: existingUser } = await supabase
         .from("users")
         .select("id")
@@ -19,28 +22,30 @@ export async function GET(request: Request) {
         .single();
 
       if (!existingUser) {
-        // Create user in our users table
+        // Create user in users table
         await supabase.from("users").insert({
           id: data.user.id,
-          name:
-            data.user.user_metadata?.full_name ||
-            data.user.email?.split("@")[0] ||
-            "",
+          name: data.user.user_metadata?.full_name || data.user.email?.split("@")[0] || "",
           full_name: data.user.user_metadata?.full_name || "",
           email: data.user.email || "",
           user_id: data.user.id,
           token_identifier: data.user.id,
+          google_access_token: providerToken,
+          google_refresh_token: refreshToken,
           created_at: new Date().toISOString(),
         });
+      } else {
+        // Update tokens if user exists
+        await supabase.from("users").update({
+          google_access_token: providerToken,
+          google_refresh_token: refreshToken,
+        }).eq("id", data.user.id);
       }
     }
   }
 
-  // URL to redirect to after sign in process completes
-  // Use the redirect_to parameter if provided, otherwise default to upload page
   const redirectTo = redirect_to || "/upload";
   const redirectUrl = new URL(redirectTo, requestUrl.origin);
-  // Clear any query parameters to prevent redirect loops
-  redirectUrl.search = "";
+  redirectUrl.search = ""; // prevent query loops
   return NextResponse.redirect(redirectUrl);
 }
