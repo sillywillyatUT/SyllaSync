@@ -7,15 +7,16 @@ export default function Footer() {
   return (
     <footer className="bg-gray-50 border-t border-gray-100">
       <div className="container mx-auto px-4 py-12">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12 max-w-2xl mx-auto">
           {/* Product Column */}
           <div>
             <h3 className="font-semibold text-gray-900 mb-4">Product</h3>
             <ul className="space-y-2">
               <li>
                 <Link
-                  href="#features"
-                  className="text-gray-600 hover:text-blue-600"
+                  href="/features"
+                  className="text-gray-600 hover:text-orange-600"
+                  title="Discover AI-powered syllabus processing and calendar integration features"
                 >
                   Features
                 </Link>
@@ -23,7 +24,8 @@ export default function Footer() {
               <li>
                 <Link
                   href="#pricing"
-                  className="text-gray-600 hover:text-blue-600"
+                  className="text-gray-600 hover:text-orange-600"
+                  title="Free for all students - no hidden costs or premium tiers"
                 >
                   Pricing
                 </Link>
@@ -31,68 +33,19 @@ export default function Footer() {
               <li>
                 <Link
                   href="/dashboard"
-                  className="text-gray-600 hover:text-blue-600"
+                  className="text-gray-600 hover:text-orange-600"
+                  title="Manage your processed syllabi and calendar exports"
                 >
                   Dashboard
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-gray-600 hover:text-blue-600">
-                  API
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Company Column */}
-          <div>
-            <h3 className="font-semibold text-gray-900 mb-4">Company</h3>
-            <ul className="space-y-2">
-              <li>
-                <Link href="#" className="text-gray-600 hover:text-blue-600">
+                <Link
+                  href="/about"
+                  className="text-gray-600 hover:text-orange-600"
+                  title="Learn more about SyllabusSync and our mission to help students"
+                >
                   About
-                </Link>
-              </li>
-              <li>
-                <Link href="#" className="text-gray-600 hover:text-blue-600">
-                  Blog
-                </Link>
-              </li>
-              <li>
-                <Link href="#" className="text-gray-600 hover:text-blue-600">
-                  Careers
-                </Link>
-              </li>
-              <li>
-                <Link href="#" className="text-gray-600 hover:text-blue-600">
-                  Press
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Resources Column */}
-          <div>
-            <h3 className="font-semibold text-gray-900 mb-4">Resources</h3>
-            <ul className="space-y-2">
-              <li>
-                <Link href="#" className="text-gray-600 hover:text-blue-600">
-                  Documentation
-                </Link>
-              </li>
-              <li>
-                <Link href="#" className="text-gray-600 hover:text-blue-600">
-                  Help Center
-                </Link>
-              </li>
-              <li>
-                <Link href="#" className="text-gray-600 hover:text-blue-600">
-                  Community
-                </Link>
-              </li>
-              <li>
-                <Link href="#" className="text-gray-600 hover:text-blue-600">
-                  Status
                 </Link>
               </li>
             </ul>
@@ -105,7 +58,7 @@ export default function Footer() {
               <li>
                 <Link
                   href="/privacy"
-                  className="text-gray-600 hover:text-blue-600"
+                  className="text-gray-600 hover:text-orange-600"
                 >
                   Privacy Policy
                 </Link>
@@ -113,7 +66,7 @@ export default function Footer() {
               <li>
                 <Link
                   href="/terms"
-                  className="text-gray-600 hover:text-blue-600"
+                  className="text-gray-600 hover:text-orange-600"
                 >
                   Terms of Service
                 </Link>
@@ -121,7 +74,7 @@ export default function Footer() {
               <li>
                 <Link
                   href="/security"
-                  className="text-gray-600 hover:text-blue-600"
+                  className="text-gray-600 hover:text-orange-600"
                 >
                   Security
                 </Link>
@@ -129,7 +82,7 @@ export default function Footer() {
               <li>
                 <Link
                   href="/cookies"
-                  className="text-gray-600 hover:text-blue-600"
+                  className="text-gray-600 hover:text-orange-600"
                 >
                   Cookie Policy
                 </Link>

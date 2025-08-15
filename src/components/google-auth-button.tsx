@@ -18,12 +18,11 @@ export default function GoogleAuthButton() {
           scopes: "https://www.googleapis.com/auth/calendar",
           queryParams: {
             access_type: "offline", //gets a refresh token
-            prompt: "consent" // ensures refresh token is returned every time
+            prompt: "consent", // ensures refresh token is returned every time
           },
           redirectTo: `${window.location.origin}/auth/callback?redirect_to=${encodeURIComponent("/upload")}`,
         },
       });
-
 
       if (error) {
         console.error("Error signing in with Google:", error.message);

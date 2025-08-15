@@ -1,55 +1,79 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { Groq } from 'groq-sdk';
-import { ChatCompletionSystemMessageParam } from "groq-sdk/resources/chat/completions"; 
+import { NextRequest, NextResponse } from "next/server";
+import { Groq } from "groq-sdk";
+import { ChatCompletionSystemMessageParam } from "groq-sdk/resources/chat/completions";
 
 let pdfParse: any;
 try {
-  pdfParse = require('pdf-parse');
+  pdfParse = require("pdf-parse");
 } catch (error) {
-  console.error('Failed to load pdf-parse:', error);
+  console.error("Failed to load pdf-parse:", error);
 }
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
-
-
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
-    const file = formData.get('file') as File;
+    const file = formData.get("file") as File;
+    const schoolYearStart = formData.get("schoolYearStart") as string;
+    const schoolYearEnd = formData.get("schoolYearEnd") as string;
 
     if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+      return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    if (file.type !== 'application/pdf') {
-      return NextResponse.json({ error: 'File must be a PDF' }, { status: 400 });
+    if (file.type !== "application/pdf") {
+      return NextResponse.json(
+        { error: "File must be a PDF" },
+        { status: 400 },
+      );
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
     if (!pdfParse) {
-      return NextResponse.json({ error: 'PDF processing library not available' }, { status: 500 });
+      return NextResponse.json(
+        { error: "PDF processing library not available" },
+        { status: 500 },
+      );
     }
 
     const pdfData = await pdfParse(buffer);
     const extractedText = pdfData.text;
 
     if (!extractedText || extractedText.trim().length === 0) {
-      return NextResponse.json({ error: 'Could not extract text from PDF' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Could not extract text from PDF" },
+        { status: 400 },
+      );
     }
 
     const systemMessage: ChatCompletionSystemMessageParam = {
       role: "system",
-      content: "You are a helpful assistant that extracts important dates and events from academic syllabi. Always respond with valid JSON arrays.",
-};
+      content:
+        "You are a helpful assistant that extracts important dates and events from academic syllabi. Always respond with valid JSON arrays.",
+    };
 
+    let schoolYearInfo = "";
+    if (schoolYearStart && schoolYearEnd) {
+      const startDate = new Date(schoolYearStart).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+      const endDate = new Date(schoolYearEnd).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+      schoolYearInfo = `\n\nIMPORTANT: The school year runs from ${startDate} to ${endDate}. Use these dates to determine when recurring classes should start and end. For recurring events, include "until ${endDate}" in the recurrence field.`;
+    }
 
     const basePrompt = `
       You are an academic assistant helping students organize their semester. Given the text of a college course or school syllabus, extract all important **academic events** and 
-      **recurring class times (example formats: (MWF, meaning every Monday, Wednesday, and Friday), (TTH, meaning every Tuesday, Thursday), etc.) ** and return them as a valid JSON array.
+      **recurring class times (example formats: (MWF, meaning every Monday, Wednesday, and Friday), (TTH, meaning every Tuesday, Thursday), etc.) ** and return them as a valid JSON array.${schoolYearInfo}
 
       Each event must include:
       - \`type\`: one of ["Assignment", "Exam", "Midterm", "Final", "Quiz", "Class", "Deadline", "Homework", "Lecture", "Section"]
@@ -113,7 +137,10 @@ export async function POST(request: NextRequest) {
       return completion.choices[0]?.message?.content || "[]";
     };
 
-    const [response1, response2] = await Promise.all([runPrompt(part1), runPrompt(part2)]);
+    const [response1, response2] = await Promise.all([
+      runPrompt(part1),
+      runPrompt(part2),
+    ]);
 
     const extractArray = (response: string): any[] => {
       try {
@@ -130,30 +157,36 @@ export async function POST(request: NextRequest) {
       id: Math.random().toString(36).substr(2, 9),
       title: item.title,
       date: item.date,
-      type: item.type?.toLowerCase() || '',
-      time: item.time || '',
-      recurrence: item.recurrence || '',
-      location: item.location || '',
-      description: item.description || ''
+      type: item.type?.toLowerCase() || "",
+      time: item.time || "",
+      recurrence: item.recurrence || "",
+      location: item.location || "",
+      description: item.description || "",
     }));
 
     if (validatedDates.length === 0) {
-      return NextResponse.json({
-        warning: "No academic dates were extracted. Make sure this is a valid syllabus.",
-        extractedDates: [],
-        processedText: extractedText.substring(0, 500) + '...',
-      }, { status: 200 });
+      return NextResponse.json(
+        {
+          warning:
+            "No academic dates were extracted. Make sure this is a valid syllabus.",
+          extractedDates: [],
+          processedText: extractedText.substring(0, 500) + "...",
+        },
+        { status: 200 },
+      );
     }
 
     return NextResponse.json({
       success: true,
       extractedDates: validatedDates,
       textLength: extractedText.length,
-      processedText: extractedText.substring(0, 500) + '...',
+      processedText: extractedText.substring(0, 500) + "...",
     });
-
   } catch (error) {
-    console.error('Error processing PDF:', error);
-    return NextResponse.json({ error: 'Failed to process PDF' }, { status: 500 });
+    console.error("Error processing PDF:", error);
+    return NextResponse.json(
+      { error: "Failed to process PDF" },
+      { status: 500 },
+    );
   }
 }

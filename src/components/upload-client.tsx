@@ -3,13 +3,7 @@
 import { useState, useRef, useCallback } from "react";
 import { createClient } from "../../supabase/client";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+
 import {
   Upload,
   FileText,
@@ -18,9 +12,23 @@ import {
   AlertCircle,
   Loader2,
   ArrowUpRight,
-  Calendar,
+  CalendarIcon,
 } from "lucide-react";
 import { cn } from "../lib/utils";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { format } from "date-fns";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 interface UploadedFile {
   file: File;
@@ -68,6 +76,13 @@ export default function UploadClient() {
   >([]);
   const [showRecurringSelection, setShowRecurringSelection] = useState(false);
   const [isExportingToGoogle, setIsExportingToGoogle] = useState(false);
+  const [schoolYearStartDate, setSchoolYearStartDate] = useState<Date>(
+    new Date(new Date().getFullYear(), 7, 15), // August 15th (month is 0-indexed)
+  );
+  const [schoolYearEndDate, setSchoolYearEndDate] = useState<Date>(
+    new Date(new Date().getFullYear() + 1, 4, 15), // May 15th next year (month is 0-indexed)
+  );
+  const [showDateWarning, setShowDateWarning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const removeExtractedDate = (id: string) => {
     setExtractedDates((prev) => prev.filter((event) => event.id !== id));
@@ -179,6 +194,15 @@ export default function UploadClient() {
         if (uploadedFile.file.type === "application/pdf") {
           const formData = new FormData();
           formData.append("file", uploadedFile.file);
+
+          // Add school year dates if available
+          if (schoolYearStartDate && schoolYearEndDate) {
+            formData.append(
+              "schoolYearStart",
+              schoolYearStartDate.toISOString(),
+            );
+            formData.append("schoolYearEnd", schoolYearEndDate.toISOString());
+          }
 
           const response = await fetch("/api/process-pdf", {
             method: "POST",
@@ -485,6 +509,127 @@ export default function UploadClient() {
       </div>
 
       <div className="max-w-6xl mx-auto px-6 pb-16">
+        {/* School Year Date Pickers */}
+        <div className="mb-8">
+          <Card className="shadow-lg border-0 border-orange-200">
+            <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-t-xl">
+              <CardTitle className="text-xl flex items-center gap-2">
+                <CalendarIcon className="w-6 h-6" />
+                School Year Dates (Optional)
+              </CardTitle>
+              <CardDescription className="text-orange-100">
+                Select your school year start and end dates to help AI better
+                understand recurring class schedules
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6 bg-orange-50">
+              <div className="flex flex-col md:flex-row gap-6 justify-center items-center">
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium text-orange-800">
+                    School Year Start Date
+                  </label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-[280px] justify-start text-left font-normal border-orange-300 hover:border-orange-400 focus:border-orange-500"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {schoolYearStartDate ? (
+                          format(schoolYearStartDate, "PPP")
+                        ) : (
+                          <span>Pick a date</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 bg-white border border-orange-200 shadow-lg">
+                      <Calendar
+                        mode="single"
+                        selected={schoolYearStartDate}
+                        onSelect={(date) => {
+                          if (date) {
+                            setSchoolYearStartDate(date);
+                            // If end date is before or equal to start date, update it
+                            if (
+                              schoolYearEndDate &&
+                              date >= schoolYearEndDate
+                            ) {
+                              const newEndDate = new Date(date);
+                              newEndDate.setMonth(newEndDate.getMonth() + 9); // Add 9 months for typical school year
+                              setSchoolYearEndDate(newEndDate);
+                            }
+                          }
+                        }}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium text-orange-800">
+                    School Year End Date
+                  </label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-[280px] justify-start text-left font-normal border-orange-300 hover:border-orange-400 focus:border-orange-500"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {schoolYearEndDate ? (
+                          format(schoolYearEndDate, "PPP")
+                        ) : (
+                          <span>Pick a date</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 bg-white border border-orange-200 shadow-lg">
+                      <Calendar
+                        mode="single"
+                        selected={schoolYearEndDate}
+                        onSelect={(date) => {
+                          if (date) {
+                            if (
+                              schoolYearStartDate &&
+                              date <= schoolYearStartDate
+                            ) {
+                              setShowDateWarning(true);
+                              setTimeout(() => setShowDateWarning(false), 3000);
+                              return;
+                            }
+                            setSchoolYearEndDate(date);
+                            setShowDateWarning(false);
+                          }
+                        }}
+                        disabled={(date) => {
+                          if (!schoolYearStartDate) return false;
+                          return date <= schoolYearStartDate;
+                        }}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  {showDateWarning && (
+                    <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <p className="text-sm text-red-600 font-medium">
+                        ⚠️ End date must be after the start date
+                      </p>
+                    </div>
+                  )}
+                  {schoolYearStartDate &&
+                    schoolYearEndDate &&
+                    schoolYearEndDate <= schoolYearStartDate &&
+                    !showDateWarning && (
+                      <p className="text-sm text-red-600 mt-1">
+                        End date must be after start date
+                      </p>
+                    )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Upload Area */}
         <div className="mb-8">
           <div
