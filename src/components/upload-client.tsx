@@ -15,8 +15,8 @@ import {
   CalendarIcon,
 } from "lucide-react";
 import { cn } from "../lib/utils";
-import { DayPicker } from "react-day-picker";
-import { format } from "date-fns";
+import { DatePicker } from "antd";
+import dayjs, { Dayjs } from "dayjs";
 import {
   Card,
   CardContent,
@@ -71,13 +71,10 @@ export default function UploadClient() {
   >([]);
   const [showRecurringSelection, setShowRecurringSelection] = useState(false);
   const [isExportingToGoogle, setIsExportingToGoogle] = useState(false);
-  const [schoolYearStartDate, setSchoolYearStartDate] = useState<Date>(
-    new Date(new Date().getFullYear(), 7, 15), // August 15th (month is 0-indexed)
-  );
-  const [schoolYearEndDate, setSchoolYearEndDate] = useState<Date>(
-    new Date(new Date().getFullYear() + 1, 4, 15), // May 15th next year (month is 0-indexed)
-  );
-  const [showDateWarning, setShowDateWarning] = useState(false);
+  const [semesterDateRange, setSemesterDateRange] = useState<[Dayjs, Dayjs]>([
+    dayjs().month(7).date(15), // August 15th
+    dayjs().add(1, "year").month(4).date(15), // May 15th next year
+  ]);
   const [showDatePickers, setShowDatePickers] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const removeExtractedDate = (id: string) => {
@@ -192,9 +189,12 @@ export default function UploadClient() {
           formData.append("file", uploadedFile.file);
 
           // Add semester dates if available and checkbox is checked
-          if (showDatePickers && schoolYearStartDate && schoolYearEndDate) {
-            formData.append("semesterStart", schoolYearStartDate.toISOString());
-            formData.append("semesterEnd", schoolYearEndDate.toISOString());
+          if (showDatePickers && semesterDateRange) {
+            formData.append(
+              "semesterStart",
+              semesterDateRange[0].toISOString(),
+            );
+            formData.append("semesterEnd", semesterDateRange[1].toISOString());
           }
 
           const response = await fetch("/api/process-pdf", {
@@ -517,133 +517,33 @@ export default function UploadClient() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-6 bg-orange-50">
-                <div className="flex flex-col md:flex-row gap-6 justify-center items-start">
-                  <div className="flex flex-col gap-2">
-                    <label className="text-sm font-medium text-orange-800">
-                      Semester Start Date
+                <div className="flex flex-col items-center">
+                  <div className="flex flex-col gap-2 w-full max-w-md">
+                    <label className="text-sm font-medium text-orange-800 text-center">
+                      Select Semester Date Range
                     </label>
-                    <div className="bg-white border border-orange-300 rounded-lg p-3">
-                      <DayPicker
-                        mode="single"
-                        selected={schoolYearStartDate}
-                        onSelect={(date) => {
-                          if (date) {
-                            setSchoolYearStartDate(date);
-                            // If end date is before or equal to start date, update it
-                            if (
-                              schoolYearEndDate &&
-                              date >= schoolYearEndDate
-                            ) {
-                              const newEndDate = new Date(date);
-                              newEndDate.setMonth(newEndDate.getMonth() + 4); // Add 4 months for typical semester
-                              setSchoolYearEndDate(newEndDate);
-                            }
+                    <div className="bg-white border border-orange-300 rounded-lg p-4">
+                      <DatePicker.RangePicker
+                        value={semesterDateRange}
+                        onChange={(dates) => {
+                          if (dates && dates[0] && dates[1]) {
+                            setSemesterDateRange([dates[0], dates[1]]);
                           }
                         }}
-                        className="rdp"
-                        classNames={{
-                          months:
-                            "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-                          month: "space-y-4",
-                          caption:
-                            "flex justify-center pt-1 relative items-center",
-                          caption_label: "text-sm font-medium",
-                          nav: "space-x-1 flex items-center",
-                          nav_button:
-                            "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100",
-                          nav_button_previous: "absolute left-1",
-                          nav_button_next: "absolute right-1",
-                          table: "w-full border-collapse space-y-1",
-                          head_row: "flex",
-                          head_cell:
-                            "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem]",
-                          row: "flex w-full mt-2",
-                          cell: "text-center text-sm p-0 relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-                          day: "h-9 w-9 p-0 font-normal aria-selected:opacity-100 hover:bg-orange-100 rounded-md",
-                          day_selected:
-                            "bg-orange-500 text-white hover:bg-orange-600 focus:bg-orange-500 focus:text-white",
-                          day_today: "bg-orange-100 text-orange-900",
-                          day_outside: "text-muted-foreground opacity-50",
-                          day_disabled: "text-muted-foreground opacity-50",
-                          day_range_middle:
-                            "aria-selected:bg-accent aria-selected:text-accent-foreground",
-                          day_hidden: "invisible",
+                        format="MMMM DD, YYYY"
+                        placeholder={["Start Date", "End Date"]}
+                        size="large"
+                        style={{
+                          width: "100%",
+                          borderColor: "#fb923c",
                         }}
+                        className="antd-range-picker-orange"
                       />
                     </div>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-sm font-medium text-orange-800">
-                      Semester End Date
-                    </label>
-                    <div className="bg-white border border-orange-300 rounded-lg p-3">
-                      <DayPicker
-                        mode="single"
-                        selected={schoolYearEndDate}
-                        onSelect={(date) => {
-                          if (date) {
-                            if (
-                              schoolYearStartDate &&
-                              date <= schoolYearStartDate
-                            ) {
-                              setShowDateWarning(true);
-                              setTimeout(() => setShowDateWarning(false), 3000);
-                              return;
-                            }
-                            setSchoolYearEndDate(date);
-                            setShowDateWarning(false);
-                          }
-                        }}
-                        disabled={(date) => {
-                          if (!schoolYearStartDate) return false;
-                          return date <= schoolYearStartDate;
-                        }}
-                        className="rdp"
-                        classNames={{
-                          months:
-                            "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-                          month: "space-y-4",
-                          caption:
-                            "flex justify-center pt-1 relative items-center",
-                          caption_label: "text-sm font-medium",
-                          nav: "space-x-1 flex items-center",
-                          nav_button:
-                            "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100",
-                          nav_button_previous: "absolute left-1",
-                          nav_button_next: "absolute right-1",
-                          table: "w-full border-collapse space-y-1",
-                          head_row: "flex",
-                          head_cell:
-                            "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem]",
-                          row: "flex w-full mt-2",
-                          cell: "text-center text-sm p-0 relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-                          day: "h-9 w-9 p-0 font-normal aria-selected:opacity-100 hover:bg-orange-100 rounded-md",
-                          day_selected:
-                            "bg-orange-500 text-white hover:bg-orange-600 focus:bg-orange-500 focus:text-white",
-                          day_today: "bg-orange-100 text-orange-900",
-                          day_outside: "text-muted-foreground opacity-50",
-                          day_disabled: "text-muted-foreground opacity-50",
-                          day_range_middle:
-                            "aria-selected:bg-accent aria-selected:text-accent-foreground",
-                          day_hidden: "invisible",
-                        }}
-                      />
-                    </div>
-                    {showDateWarning && (
-                      <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-                        <p className="text-sm text-red-600 font-medium">
-                          ⚠️ End date must be after the start date
-                        </p>
-                      </div>
-                    )}
-                    {schoolYearStartDate &&
-                      schoolYearEndDate &&
-                      schoolYearEndDate <= schoolYearStartDate &&
-                      !showDateWarning && (
-                        <p className="text-sm text-red-600 mt-1">
-                          End date must be after start date
-                        </p>
-                      )}
+                    <p className="text-xs text-orange-600 text-center mt-2">
+                      The end date will automatically be prevented from being
+                      before the start date
+                    </p>
                   </div>
                 </div>
               </CardContent>
