@@ -530,6 +530,18 @@ export default function UploadClient() {
                             setSemesterDateRange([dates[0], dates[1]]);
                           }
                         }}
+                        disabledDate={(current, { from }) => {
+                          if (!from) return false;
+                          // Disable dates that are before the start date
+                          if (current && current.isBefore(from, "day")) {
+                            return true;
+                          }
+                          // Disable dates that are in the same month as the start date
+                          if (current && current.isSame(from, "month")) {
+                            return true;
+                          }
+                          return false;
+                        }}
                         format="MMMM DD, YYYY"
                         placeholder={["Start Date", "End Date"]}
                         size="large"
@@ -541,8 +553,8 @@ export default function UploadClient() {
                       />
                     </div>
                     <p className="text-xs text-orange-600 text-center mt-2">
-                      The end date will automatically be prevented from being
-                      before the start date
+                      The end date cannot be in the same month or before the
+                      start date
                     </p>
                   </div>
                 </div>
