@@ -15,12 +15,7 @@ import {
   CalendarIcon,
 } from "lucide-react";
 import { cn } from "../lib/utils";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { DayPicker } from "react-day-picker";
 import { format } from "date-fns";
 import {
   Card,
@@ -83,6 +78,7 @@ export default function UploadClient() {
     new Date(new Date().getFullYear() + 1, 4, 15), // May 15th next year (month is 0-indexed)
   );
   const [showDateWarning, setShowDateWarning] = useState(false);
+  const [showDatePickers, setShowDatePickers] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const removeExtractedDate = (id: string) => {
     setExtractedDates((prev) => prev.filter((event) => event.id !== id));
@@ -195,13 +191,10 @@ export default function UploadClient() {
           const formData = new FormData();
           formData.append("file", uploadedFile.file);
 
-          // Add school year dates if available
-          if (schoolYearStartDate && schoolYearEndDate) {
-            formData.append(
-              "schoolYearStart",
-              schoolYearStartDate.toISOString(),
-            );
-            formData.append("schoolYearEnd", schoolYearEndDate.toISOString());
+          // Add semester dates if available and checkbox is checked
+          if (showDatePickers && schoolYearStartDate && schoolYearEndDate) {
+            formData.append("semesterStart", schoolYearStartDate.toISOString());
+            formData.append("semesterEnd", schoolYearEndDate.toISOString());
           }
 
           const response = await fetch("/api/process-pdf", {
@@ -509,41 +502,28 @@ export default function UploadClient() {
       </div>
 
       <div className="max-w-6xl mx-auto px-6 pb-16">
-        {/* School Year Date Pickers */}
-        <div className="mb-8">
-          <Card className="shadow-lg border-0 border-orange-200">
-            <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-t-xl">
-              <CardTitle className="text-xl flex items-center gap-2">
-                <CalendarIcon className="w-6 h-6" />
-                School Year Dates (Optional)
-              </CardTitle>
-              <CardDescription className="text-orange-100">
-                Select your school year start and end dates to help AI better
-                understand recurring class schedules
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-6 bg-orange-50">
-              <div className="flex flex-col md:flex-row gap-6 justify-center items-center">
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium text-orange-800">
-                    School Year Start Date
-                  </label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-[280px] justify-start text-left font-normal border-orange-300 hover:border-orange-400 focus:border-orange-500"
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {schoolYearStartDate ? (
-                          format(schoolYearStartDate, "PPP")
-                        ) : (
-                          <span>Pick a date</span>
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 bg-white border border-orange-200 shadow-lg">
-                      <Calendar
+        {/* Semester Date Pickers */}
+        {showDatePickers && (
+          <div className="mb-8">
+            <Card className="shadow-lg border-0 border-orange-200">
+              <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-t-xl">
+                <CardTitle className="text-xl flex items-center gap-2">
+                  <CalendarIcon className="w-6 h-6" />
+                  Semester Dates
+                </CardTitle>
+                <CardDescription className="text-orange-100">
+                  Select your semester start and end dates to help AI better
+                  understand recurring class schedules
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-6 bg-orange-50">
+                <div className="flex flex-col md:flex-row gap-6 justify-center items-start">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm font-medium text-orange-800">
+                      Semester Start Date
+                    </label>
+                    <div className="bg-white border border-orange-300 rounded-lg p-3">
+                      <DayPicker
                         mode="single"
                         selected={schoolYearStartDate}
                         onSelect={(date) => {
@@ -555,36 +535,49 @@ export default function UploadClient() {
                               date >= schoolYearEndDate
                             ) {
                               const newEndDate = new Date(date);
-                              newEndDate.setMonth(newEndDate.getMonth() + 9); // Add 9 months for typical school year
+                              newEndDate.setMonth(newEndDate.getMonth() + 4); // Add 4 months for typical semester
                               setSchoolYearEndDate(newEndDate);
                             }
                           }
                         }}
-                        initialFocus
+                        className="rdp"
+                        classNames={{
+                          months:
+                            "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
+                          month: "space-y-4",
+                          caption:
+                            "flex justify-center pt-1 relative items-center",
+                          caption_label: "text-sm font-medium",
+                          nav: "space-x-1 flex items-center",
+                          nav_button:
+                            "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100",
+                          nav_button_previous: "absolute left-1",
+                          nav_button_next: "absolute right-1",
+                          table: "w-full border-collapse space-y-1",
+                          head_row: "flex",
+                          head_cell:
+                            "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem]",
+                          row: "flex w-full mt-2",
+                          cell: "text-center text-sm p-0 relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+                          day: "h-9 w-9 p-0 font-normal aria-selected:opacity-100 hover:bg-orange-100 rounded-md",
+                          day_selected:
+                            "bg-orange-500 text-white hover:bg-orange-600 focus:bg-orange-500 focus:text-white",
+                          day_today: "bg-orange-100 text-orange-900",
+                          day_outside: "text-muted-foreground opacity-50",
+                          day_disabled: "text-muted-foreground opacity-50",
+                          day_range_middle:
+                            "aria-selected:bg-accent aria-selected:text-accent-foreground",
+                          day_hidden: "invisible",
+                        }}
                       />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium text-orange-800">
-                    School Year End Date
-                  </label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-[280px] justify-start text-left font-normal border-orange-300 hover:border-orange-400 focus:border-orange-500"
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {schoolYearEndDate ? (
-                          format(schoolYearEndDate, "PPP")
-                        ) : (
-                          <span>Pick a date</span>
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 bg-white border border-orange-200 shadow-lg">
-                      <Calendar
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm font-medium text-orange-800">
+                      Semester End Date
+                    </label>
+                    <div className="bg-white border border-orange-300 rounded-lg p-3">
+                      <DayPicker
                         mode="single"
                         selected={schoolYearEndDate}
                         onSelect={(date) => {
@@ -605,30 +598,58 @@ export default function UploadClient() {
                           if (!schoolYearStartDate) return false;
                           return date <= schoolYearStartDate;
                         }}
-                        initialFocus
+                        className="rdp"
+                        classNames={{
+                          months:
+                            "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
+                          month: "space-y-4",
+                          caption:
+                            "flex justify-center pt-1 relative items-center",
+                          caption_label: "text-sm font-medium",
+                          nav: "space-x-1 flex items-center",
+                          nav_button:
+                            "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100",
+                          nav_button_previous: "absolute left-1",
+                          nav_button_next: "absolute right-1",
+                          table: "w-full border-collapse space-y-1",
+                          head_row: "flex",
+                          head_cell:
+                            "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem]",
+                          row: "flex w-full mt-2",
+                          cell: "text-center text-sm p-0 relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+                          day: "h-9 w-9 p-0 font-normal aria-selected:opacity-100 hover:bg-orange-100 rounded-md",
+                          day_selected:
+                            "bg-orange-500 text-white hover:bg-orange-600 focus:bg-orange-500 focus:text-white",
+                          day_today: "bg-orange-100 text-orange-900",
+                          day_outside: "text-muted-foreground opacity-50",
+                          day_disabled: "text-muted-foreground opacity-50",
+                          day_range_middle:
+                            "aria-selected:bg-accent aria-selected:text-accent-foreground",
+                          day_hidden: "invisible",
+                        }}
                       />
-                    </PopoverContent>
-                  </Popover>
-                  {showDateWarning && (
-                    <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-                      <p className="text-sm text-red-600 font-medium">
-                        ⚠️ End date must be after the start date
-                      </p>
                     </div>
-                  )}
-                  {schoolYearStartDate &&
-                    schoolYearEndDate &&
-                    schoolYearEndDate <= schoolYearStartDate &&
-                    !showDateWarning && (
-                      <p className="text-sm text-red-600 mt-1">
-                        End date must be after start date
-                      </p>
+                    {showDateWarning && (
+                      <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <p className="text-sm text-red-600 font-medium">
+                          ⚠️ End date must be after the start date
+                        </p>
+                      </div>
                     )}
+                    {schoolYearStartDate &&
+                      schoolYearEndDate &&
+                      schoolYearEndDate <= schoolYearStartDate &&
+                      !showDateWarning && (
+                        <p className="text-sm text-red-600 mt-1">
+                          End date must be after start date
+                        </p>
+                      )}
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Upload Area */}
         <div className="mb-8">
@@ -661,6 +682,35 @@ export default function UploadClient() {
               onChange={handleFileSelect}
               className="hidden"
             />
+          </div>
+        </div>
+
+        {/* Semester Date Pickers Checkbox */}
+        <div className="mb-8">
+          <div className="bg-gradient-to-r from-orange-50 to-orange-100 border border-orange-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all duration-300">
+            <div className="flex items-start space-x-4">
+              <div className="flex items-center mt-1">
+                <input
+                  type="checkbox"
+                  id="showDatePickers"
+                  checked={showDatePickers}
+                  onChange={(e) => setShowDatePickers(e.target.checked)}
+                  className="w-5 h-5 text-orange-600 bg-white border-2 border-orange-300 rounded-md focus:ring-orange-500 focus:ring-2 focus:ring-offset-0 transition-all duration-200 cursor-pointer"
+                />
+              </div>
+              <div className="flex-1">
+                <label
+                  htmlFor="showDatePickers"
+                  className="text-base font-semibold text-orange-900 cursor-pointer block mb-1"
+                >
+                  Set Custom Semester Dates
+                </label>
+                <p className="text-sm text-orange-700 leading-relaxed">
+                  Optional: Help our AI better understand recurring class
+                  schedules by specifying your semester start and end dates
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -810,7 +860,7 @@ export default function UploadClient() {
             <Card className="shadow-lg border-0 border-orange-200">
               <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-t-xl">
                 <CardTitle className="text-xl flex items-center gap-2">
-                  <Calendar className="w-6 h-6" />
+                  <CalendarIcon className="w-6 h-6" />
                   Multiple Class Times Found
                 </CardTitle>
                 <CardDescription className="text-orange-100">
@@ -869,7 +919,7 @@ export default function UploadClient() {
               <Card className="shadow-lg border-0 border-orange-200">
                 <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-t-xl">
                   <CardTitle className="text-xl flex items-center gap-2">
-                    <Calendar className="w-6 h-6" />
+                    <CalendarIcon className="w-6 h-6" />
                     Extracted Important Dates
                   </CardTitle>
                   <CardDescription className="text-orange-100">
@@ -977,7 +1027,7 @@ export default function UploadClient() {
           <Card className="shadow-lg border-0 border-orange-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
             <CardHeader className="bg-gradient-to-r from-orange-400 to-orange-500 text-white rounded-t-xl">
               <CardTitle className="text-xl flex items-center gap-2">
-                <Calendar className="w-6 h-6" />
+                <CalendarIcon className="w-6 h-6" />
                 How It Works
               </CardTitle>
             </CardHeader>
@@ -1057,11 +1107,9 @@ export default function UploadClient() {
                     <p className="text-sm text-orange-600">Coming soon</p>
                   </div>
                 </div>
-                <div className="flex items-center space-x-3"></div>
                 <div className="mt-4 p-3 bg-orange-100 rounded-lg">
                   <p className="text-xs text-orange-700">
                     <strong>Maximum file size:</strong> 10MB per file
-                    <br />
                   </p>
                 </div>
               </div>
