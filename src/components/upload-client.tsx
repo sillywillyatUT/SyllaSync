@@ -899,7 +899,7 @@ export default function UploadClient() {
                     ))}
                   </div>
                   <div className="mt-6 flex gap-3">
-                    <Button
+                    {/* <Button
                       onClick={exportToGoogleCalendar}
                       disabled={isExportingToGoogle}
                       className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl"
@@ -912,7 +912,7 @@ export default function UploadClient() {
                       ) : (
                         "Export to Google Calendar"
                       )}
-                    </Button>
+                    </Button> */}
                     <Button
                       onClick={downloadICSFile}
                       variant="outline"
