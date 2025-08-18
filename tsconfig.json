@@ -15,13 +15,13 @@
     "jsx": "preserve",
     "incremental": true,
     "plugins": [{ "name": "next" }],
-    "baseUrl": ".", // root of project
+    "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"], // can access root-level files like ./app/*
-      "@/app/*": ["./app/*"], // new location of your app directory
-      "@/components/*": ["./src/components/*"], // components still in src
-      "@/lib/*": ["./src/lib/*"], // lib utilities
-      "@/utils/*": ["./src/utils/*"] // utils functions
+      "@/*": ["./*"],
+      "@/app/*": ["./app/*"],
+      "@/components/*": ["./src/components/*"],
+      "@/lib/*": ["./src/lib/*"],
+      "@/utils/*": ["./src/utils/*"]
     }
   },
   "include": [
@@ -31,5 +31,8 @@
     ".next/types/**/*.ts",
     "next.config.js"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "supabase/functions"  
+  ]
 }
