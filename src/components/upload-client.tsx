@@ -24,6 +24,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface UploadedFile {
   file: File;
@@ -487,6 +488,25 @@ export default function UploadClient() {
     downloadICSFile();
   };
 
+  const resetUpload = () => {
+    setFiles([]);
+    setExtractedDates([]);
+    setShowResults(false);
+    setRecurringClassOptions([]);
+    setShowRecurringSelection(false);
+    setIsProcessing(false);
+    setIsExportingToGoogle(false);
+    setSemesterDateRange([
+      dayjs().month(7).date(15), // August 15th
+      dayjs().add(1, "year").month(4).date(15), // May 15th next year
+    ]);
+    setShowDatePickers(false);
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   return (
     <>
       {/* Hero Section */}
@@ -898,7 +918,7 @@ export default function UploadClient() {
                       </div>
                     ))}
                   </div>
-                  <div className="mt-6 flex gap-3">
+                  <div className="mt-6 flex flex-wrap gap-3">
                     {/* <Button
                       onClick={exportToGoogleCalendar}
                       disabled={isExportingToGoogle}
@@ -927,6 +947,13 @@ export default function UploadClient() {
                     >
                       Export to Apple Calendar
                     </Button>
+                    <Button
+                      onClick={resetUpload}
+                      variant="outline"
+                      className="border-gray-400 text-gray-600 hover:bg-gray-50 rounded-xl"
+                    >
+                      Upload New Syllabus
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -934,7 +961,7 @@ export default function UploadClient() {
           )}
 
         {/* How It Works & Supported Formats - Side by Side */}
-        <div className="grid md:grid-cols-2 gap-8">
+        <div className="grid md:grid-cols-2 gap-8 mb-8">
           {/* How It Works */}
           <Card className="shadow-lg border-0 border-orange-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
             <CardHeader className="bg-gradient-to-r from-orange-400 to-orange-500 text-white rounded-t-xl">
@@ -1028,6 +1055,198 @@ export default function UploadClient() {
             </CardContent>
           </Card>
         </div>
+
+        {/* ICS File Import Instructions */}
+        <Card className="shadow-lg border-0 border-orange-200">
+          <CardHeader className="bg-gradient-to-r from-orange-400 to-orange-500 text-white rounded-t-xl">
+            <CardTitle className="text-xl flex items-center gap-2">
+              <CalendarIcon className="w-6 h-6" />
+              How to Import Your Calendar File
+            </CardTitle>
+            <CardDescription className="text-orange-100">
+              Learn how to add your syllabus events to your preferred calendar
+              app
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-6 bg-orange-50">
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                About ICS Files
+              </h3>
+              <p className="text-gray-700 leading-relaxed">
+                An ICS file (iCalendar format) is a universal calendar file that
+                contains your syllabus events and can be imported into any
+                calendar application. When you download the .ics file, it
+                includes all your extracted dates with proper formatting, making
+                it easy to add them to your preferred calendar service.
+              </p>
+            </div>
+
+            <Tabs defaultValue="google" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 bg-orange-100">
+                <TabsTrigger
+                  value="google"
+                  className="data-[state=active]:bg-white data-[state=active]:text-orange-600"
+                >
+                  Google Calendar
+                </TabsTrigger>
+                <TabsTrigger
+                  value="outlook"
+                  className="data-[state=active]:bg-white data-[state=active]:text-orange-600"
+                >
+                  Outlook
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="google" className="mt-4">
+                <div className="bg-white rounded-lg p-4 border border-orange-200">
+                  <h4 className="font-semibold text-gray-900 mb-3">
+                    Import to Google Calendar
+                  </h4>
+                  <ol className="space-y-2 text-sm text-gray-700">
+                    <li className="flex items-start space-x-2">
+                      <span className="bg-orange-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                        1
+                      </span>
+                      <span>Open Google Calendar in your web browser</span>
+                    </li>
+                    <li className="flex items-start space-x-2">
+                      <span className="bg-orange-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                        2
+                      </span>
+                      <span>
+                        Click the &quot;+&quot; button next to &quot;Other
+                        calendars&quot; on the left sidebar
+                      </span>
+                    </li>
+                    <li className="flex items-start space-x-2">
+                      <span className="bg-orange-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                        3
+                      </span>
+                      <span>
+                        Select &quot;Import&quot; from the dropdown menu
+                      </span>
+                    </li>
+                    <li className="flex items-start space-x-2">
+                      <span className="bg-orange-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                        4
+                      </span>
+                      <span>
+                        Click &quot;Select file from your computer&quot; and
+                        choose your downloaded .ics file
+                      </span>
+                    </li>
+                    <li className="flex items-start space-x-2">
+                      <span className="bg-orange-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                        5
+                      </span>
+                      <span>
+                        Choose which calendar to add the events to and click
+                        &quot;Import&quot;
+                      </span>
+                    </li>
+                  </ol>
+                  <div className="mt-4 p-3 bg-orange-50 rounded-lg">
+                    <p className="text-xs text-orange-700">
+                      <strong>Tip:</strong> Your syllabus events will appear in
+                      your selected calendar and sync across all your devices.
+                    </p>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="outlook" className="mt-4">
+                <div className="bg-white rounded-lg p-4 border border-orange-200">
+                  <h4 className="font-semibold text-gray-900 mb-3">
+                    Import to Outlook
+                  </h4>
+                  <div className="mb-4">
+                    <h5 className="font-medium text-gray-800 mb-2">
+                      Outlook Web (outlook.com):
+                    </h5>
+                    <ol className="space-y-2 text-sm text-gray-700">
+                      <li className="flex items-start space-x-2">
+                        <span className="bg-orange-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                          1
+                        </span>
+                        <span>Open Outlook.com and go to Calendar</span>
+                      </li>
+                      <li className="flex items-start space-x-2">
+                        <span className="bg-orange-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                          2
+                        </span>
+                        <span>
+                          Click &quot;Add calendar&quot; in the left sidebar
+                        </span>
+                      </li>
+                      <li className="flex items-start space-x-2">
+                        <span className="bg-orange-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                          3
+                        </span>
+                        <span>Select &quot;Upload from file&quot;</span>
+                      </li>
+                      <li className="flex items-start space-x-2">
+                        <span className="bg-orange-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                          4
+                        </span>
+                        <span>
+                          Browse and select your .ics file, then click
+                          &quot;Import&quot;
+                        </span>
+                      </li>
+                    </ol>
+                  </div>
+
+                  <div>
+                    <h5 className="font-medium text-gray-800 mb-2">
+                      Outlook Desktop App:
+                    </h5>
+                    <ol className="space-y-2 text-sm text-gray-700">
+                      <li className="flex items-start space-x-2">
+                        <span className="bg-orange-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                          1
+                        </span>
+                        <span>
+                          Open Outlook and go to File &gt; Open &amp; Export
+                        </span>
+                      </li>
+                      <li className="flex items-start space-x-2">
+                        <span className="bg-orange-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                          2
+                        </span>
+                        <span>Click &quot;Import/Export&quot;</span>
+                      </li>
+                      <li className="flex items-start space-x-2">
+                        <span className="bg-orange-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                          3
+                        </span>
+                        <span>
+                          Select &quot;Import an iCalendar (.ics) or vCalendar
+                          file (.vcs)&quot;
+                        </span>
+                      </li>
+                      <li className="flex items-start space-x-2">
+                        <span className="bg-orange-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                          4
+                        </span>
+                        <span>
+                          Browse for your .ics file and click &quot;OK&quot;
+                        </span>
+                      </li>
+                    </ol>
+                  </div>
+
+                  <div className="mt-4 p-3 bg-orange-50 rounded-lg">
+                    <p className="text-xs text-orange-700">
+                      <strong>Note:</strong> The exact steps may vary slightly
+                      depending on your Outlook version.
+                    </p>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
       </div>
     </>
   );
