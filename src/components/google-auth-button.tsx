@@ -15,11 +15,6 @@ export default function GoogleAuthButton() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          scopes: "https://www.googleapis.com/auth/calendar",
-          queryParams: {
-            access_type: "offline", //gets a refresh token
-            prompt: "consent", // ensures refresh token is returned every time
-          },
           redirectTo: `${window.location.origin}/auth/callback?redirect_to=${encodeURIComponent("/upload")}`,
         },
       });

@@ -129,7 +129,7 @@ export const signInWithGoogleAction = async (formData?: FormData) => {
     provider: "google",
     options: {
       redirectTo: `${origin}/auth/callback?redirect_to=${encodeURIComponent(redirectTo)}`,
-      scopes: "openid email profile https://www.googleapis.com/auth/calendar",
+      scopes: "openid email profile",
       queryParams: {
         access_type: "offline",
         prompt: "consent",

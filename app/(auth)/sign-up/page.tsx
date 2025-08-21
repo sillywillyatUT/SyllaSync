@@ -110,7 +110,7 @@ export default function Signup({
                     type="password"
                     name="password"
                     placeholder="Your password"
-                    minLength={6}
+                    minLength={5}
                     required
                     className="w-full"
                   />
@@ -128,7 +128,7 @@ export default function Signup({
                     type="password"
                     name="confirm_password"
                     placeholder="Re-enter your password"
-                    minLength={6}
+                    minLength={5}
                     required
                     className="w-full"
                   />

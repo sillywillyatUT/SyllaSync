@@ -172,16 +172,12 @@ export default async function Home() {
           <ScrollAnimation>
             <div className="grid md:grid-cols-3 gap-8 text-center">
               <div className="transform hover:scale-110 transition-transform duration-300">
-                <div className="text-4xl font-bold mb-2">10,000+</div>
+                <div className="text-4xl font-bold mb-2">1,000+</div>
                 <div className="text-orange-100">Syllabi Processed</div>
               </div>
               <div className="transform hover:scale-110 transition-transform duration-300">
-                <div className="text-4xl font-bold mb-2">5,000+</div>
+                <div className="text-4xl font-bold mb-2">100+</div>
                 <div className="text-orange-100">Happy Students</div>
-              </div>
-              <div className="transform hover:scale-110 transition-transform duration-300">
-                <div className="text-4xl font-bold mb-2">99.5%</div>
-                <div className="text-orange-100">Accuracy Rate</div>
               </div>
             </div>
           </ScrollAnimation>
