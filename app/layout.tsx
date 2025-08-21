@@ -8,19 +8,13 @@ import { ThemeProvider } from "@/components/theme-provider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Syllabus Calendar Generator",
+  title: "SyllaSync - syllasync.netlify.app",
   description:
     "Extract important dates from syllabi and convert them into calendar events",
   icons: {
-    icon: [
-      {
-        url: "/favicon.ico",
-        sizes: "16x16 32x32 48x48",
-        type: "image/x-icon",
-      },
-    ],
-    shortcut: "/favicon.ico",
-    apple: "/favicon.ico",
+    icon: "/favicon.ico?v=1",
+    shortcut: "/favicon.ico?v=1",
+    apple: "/favicon.ico?v=1",
   },
 };
 
