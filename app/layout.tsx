@@ -8,11 +8,19 @@ import { ThemeProvider } from "@/components/theme-provider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Tempo - Modern SaaS Starter",
-  description: "A modern full-stack starter template powered by Next.js",
-    icons: {
-    icon: "/favicon.ico",
+  title: "Syllabus Calendar Generator",
+  description:
+    "Extract important dates from syllabi and convert them into calendar events",
+  icons: {
+    icon: [
+      {
+        url: "/favicon.ico",
+        sizes: "16x16 32x32 48x48",
+        type: "image/x-icon",
+      },
+    ],
     shortcut: "/favicon.ico",
+    apple: "/favicon.ico",
   },
 };
 
