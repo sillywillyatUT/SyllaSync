@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Groq } from "groq-sdk";
 import { ChatCompletionSystemMessageParam } from "groq-sdk/resources/chat/completions";
-import pdfParse from "pdf-parse";
+//import pdfParse from "pdf-parse";
 
 
-// let pdfParse: any;
-// try {
-//   pdfParse = require("pdf-parse");
-// } catch (error) {
-//   console.error("Failed to load pdf-parse:", error);
-// }
+let pdfParse: any;
+try {
+ pdfParse = require("pdf-parse");
+ } catch (error) {
+   console.error("Failed to load pdf-parse:", error);
+ }
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
