@@ -9,6 +9,7 @@ try {
  pdfParse = require("pdf-parse");
  } catch (error) {
    console.error("Failed to load pdf-parse:", error);
+   pdfParse = null;
  }
 
 const groq = new Groq({
@@ -38,17 +39,26 @@ export async function POST(request: NextRequest) {
     if (!pdfParse) {
       return NextResponse.json(
         { error: "PDF processing library not available" },
-        { status: 500 },
+        { status: 500 }
       );
     }
 
-    const pdfData = await pdfParse(buffer);
-    const extractedText = pdfData.text;
+    let pdfData;
+    try {
+      pdfData = await pdfParse(buffer);
+    } catch (err) {
+      console.error("Error parsing PDF:", err);
+      return NextResponse.json(
+        { error: "Failed to parse PDF" },
+        { status: 500 }
+      );
+    }
 
-    if (!extractedText || extractedText.trim().length === 0) {
+    const extractedText = pdfData.text || "";
+    if (!extractedText.trim()) {
       return NextResponse.json(
         { error: "Could not extract text from PDF" },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
