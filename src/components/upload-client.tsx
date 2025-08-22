@@ -899,7 +899,7 @@ export default function UploadClient() {
                     ))}
                   </div>
                   <div className="mt-6 flex gap-3">
-                    // Uncomment the Google Calendar export button when ready
+                    
                     {/* <Button
                       onClick={exportToGoogleCalendar}
                       disabled={isExportingToGoogle}
@@ -921,7 +921,7 @@ export default function UploadClient() {
                     >
                       Download .ics File
                     </Button>
-                    // Uncomment the Apple Calendar export button when ready
+                    
                     {/* <Button
                       onClick={exportToAppleCalendar}
                       variant="outline"
