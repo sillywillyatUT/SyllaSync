@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
     const uint8Array = new Uint8Array(arrayBuffer);
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     let extractedText = "";
     try {
       const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
@@ -83,12 +84,22 @@ export async function POST(request: NextRequest) {
     }
     if (!extractedText.trim()) {
 =======
+=======
+>>>>>>> parent of edc02ca (updated pdfparse thing)
     if (!pdfParse) {
       return NextResponse.json(
         { error: "PDF processing library not available" },
         { status: 500 },
       );
     }
+<<<<<<< HEAD
+
+    const pdfData = await pdfParse(buffer);
+    const extractedText = pdfData.text;
+
+    if (!extractedText || extractedText.trim().length === 0) {
+>>>>>>> parent of edc02ca (updated pdfparse thing)
+=======
 
     const pdfData = await pdfParse(buffer);
     const extractedText = pdfData.text;
