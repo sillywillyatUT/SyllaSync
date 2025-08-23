@@ -1,23 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Groq } from "groq-sdk";
 import { ChatCompletionSystemMessageParam } from "groq-sdk/resources/chat/completions";
-//import pdfParse from "pdf-parse";
+import * as pdfjsLib from "pdfjs-dist";
 
-
-let pdfParse: any;
-try {
- pdfParse = require("pdf-parse");
- } catch (error) {
-   console.error("Failed to load pdf-parse:", error);
-   pdfParse = null;
- }
+// Configure PDF.js worker for server-side rendering
+if (typeof window === "undefined" && typeof pdfjsLib !== "undefined") {
+  try {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+  } catch (error) {
+    console.warn("Failed to configure PDF.js worker:", error);
+  }
+}
 
 const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
+  apiKey: process.env.GROQ_API_KEY || "",
 });
 
 export async function POST(request: NextRequest) {
   try {
+    if (!process.env.GROQ_API_KEY) {
+      return NextResponse.json(
+        { error: "GROQ API key not configured" },
+        { status: 500 },
+      );
+    }
+
     const formData = await request.formData();
     const file = formData.get("file") as File;
     const schoolYearStart = formData.get("schoolYearStart") as string;
@@ -34,31 +41,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
 
-    if (!pdfParse) {
-      return NextResponse.json(
-        { error: "PDF processing library not available" },
-        { status: 500 }
-      );
-    }
-
-    let pdfData;
+    let extractedText = "";
     try {
-      pdfData = await pdfParse(buffer);
+      const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
+      const pdf = await loadingTask.promise;
+      const numPages = pdf.numPages;
+
+      for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+        const page = await pdf.getPage(pageNum);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items
+          .map((item: any) => {
+            if (item && typeof item === "object" && "str" in item) {
+              return item.str;
+            }
+            return "";
+          })
+          .join(" ");
+        extractedText += pageText + "\n";
+      }
     } catch (err) {
       console.error("Error parsing PDF:", err);
       return NextResponse.json(
         { error: "Failed to parse PDF" },
-        { status: 500 }
+        { status: 500 },
       );
     }
-
-    const extractedText = pdfData.text || "";
     if (!extractedText.trim()) {
       return NextResponse.json(
         { error: "Could not extract text from PDF" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
