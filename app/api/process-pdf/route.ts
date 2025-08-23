@@ -3,6 +3,7 @@ import { Groq } from "groq-sdk";
 import { ChatCompletionSystemMessageParam } from "groq-sdk/resources/chat/completions";
 import * as pdfjsLib from "pdfjs-dist";
 
+<<<<<<< HEAD
 // Configure PDF.js worker for server-side rendering
 if (typeof window === "undefined" && typeof pdfjsLib !== "undefined") {
   try {
@@ -11,6 +12,15 @@ if (typeof window === "undefined" && typeof pdfjsLib !== "undefined") {
     console.warn("Failed to configure PDF.js worker:", error);
   }
 }
+=======
+
+let pdfParse: any;
+try {
+ pdfParse = require("pdf-parse");
+ } catch (error) {
+   console.error("Failed to load pdf-parse:", error);
+ }
+>>>>>>> parent of edc02ca (updated pdfparse thing)
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY || "",
@@ -44,6 +54,7 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
 
+<<<<<<< HEAD
     let extractedText = "";
     try {
       const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
@@ -71,6 +82,19 @@ export async function POST(request: NextRequest) {
       );
     }
     if (!extractedText.trim()) {
+=======
+    if (!pdfParse) {
+      return NextResponse.json(
+        { error: "PDF processing library not available" },
+        { status: 500 },
+      );
+    }
+
+    const pdfData = await pdfParse(buffer);
+    const extractedText = pdfData.text;
+
+    if (!extractedText || extractedText.trim().length === 0) {
+>>>>>>> parent of edc02ca (updated pdfparse thing)
       return NextResponse.json(
         { error: "Could not extract text from PDF" },
         { status: 400 },
