@@ -1,31 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Groq } from "groq-sdk";
 import { ChatCompletionSystemMessageParam } from "groq-sdk/resources/chat/completions";
-import pdfjsLib from "pdfjs-dist/legacy/build/pdf.js";
-
-
-
-
+// Use proper ES module import - this is the fix!
+import pdfParse from "pdf-parse";
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
-
-async function extractTextFromPDF(buffer: Buffer): Promise<string> {
-  const uint8Array = new Uint8Array(buffer);
-  const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
-  const pdf = await loadingTask.promise;
-
-  let textContent = "";
-
-  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-    const page = await pdf.getPage(pageNum);
-    const text = await page.getTextContent();
-    textContent += text.items.map((item: any) => item.str).join(" ") + "\n";
-  }
-
-  return textContent;
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,7 +22,16 @@ export async function POST(request: NextRequest) {
     if (file.type !== "application/pdf") {
       return NextResponse.json(
         { error: "File must be a PDF" },
-        { status: 400 }
+        { status: 400 },
+      );
+    }
+
+    // Add file size check for serverless limits
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { error: "File too large. Maximum size is 10MB" },
+        { status: 413 },
       );
     }
 
@@ -49,19 +39,24 @@ export async function POST(request: NextRequest) {
 
     let extractedText = "";
     try {
-      extractedText = await extractTextFromPDF(buffer);
-    } catch (err) {
-      console.error("Error parsing PDF:", err);
+      // Direct usage - no dynamic require needed
+      const pdfData = await pdfParse(buffer);
+      extractedText = pdfData.text;
+    } catch (pdfError) {
+      console.error("PDF parsing error:", pdfError);
       return NextResponse.json(
-        { error: "Failed to parse PDF" },
+        { 
+          error: "Failed to parse PDF. The file may be corrupted, password-protected, or contain only images.",
+          details: pdfError instanceof Error ? pdfError.message : "Unknown PDF error"
+        },
         { status: 500 }
       );
     }
 
-    if (!extractedText.trim()) {
+    if (!extractedText || extractedText.trim().length === 0) {
       return NextResponse.json(
-        { error: "Could not extract text from PDF" },
-        { status: 400 }
+        { error: "Could not extract text from PDF. The PDF may contain only images or be empty." },
+        { status: 400 },
       );
     }
 
@@ -86,7 +81,6 @@ export async function POST(request: NextRequest) {
       schoolYearInfo = `\n\nIMPORTANT: The school year runs from ${startDate} to ${endDate}. Use these dates to determine when recurring classes should start and end. For recurring events, include "until ${endDate}" in the recurrence field.`;
     }
 
-    // ✅ ORIGINAL basePrompt preserved exactly
     const basePrompt = `
       You are an academic assistant helping students organize their semester. Given the text of a college course or school syllabus, extract all important **academic events** and 
       **recurring class times (example formats: (MWF, meaning every Monday, Wednesday, and Friday), (TTH, meaning every Tuesday, Thursday), etc.) ** and return them as a valid JSON array.${schoolYearInfo}
@@ -108,11 +102,9 @@ export async function POST(request: NextRequest) {
       - If the syllabus does not contain class times, look through the text for any reccurring patterns (MWF, TTH) or mentions of class times and generate a "Class" event with the \`recurrence\` field.
       - If the syllabus mentions recurring quizzes, exams, or deadlines without individual dates but includes days of the week (monday, tuesday, wednesday, thursday, friday, saturday, sunday, MWF, TTH, MTWTHF), use the same approach and set appropriate \`recurrence\`. Include the time if applicable.
       - If the syllabus header or top section includes a class time and days of the week (e.g., "MWF 3:00–4:30"), treat that as a recurring class event from the first to last listed date (if available). If dates are missing, leave them blank and note that in the description.
-      - If the first and last day of class are missing, leave \`recurrence\` empty but include a \`description\` saying: "Recurring pattern detected but start/end dates are missing."
       - If the syllabus mentions quizzes, exams, or assignments but does not provide individual dates or any days of the week, do not include them in the output.
-      - Include homework or assignments if they appear in a schedule or table with a due date, even if titles are generic (e.g., “Homework 1”). Use the date from the schedule as the event date and infer the type as "Homework".
-      - Do not include events classified as office hours or other non-academic events.
-      - If the event is called "Section", "Class", "Lecture", or "Session", treat it as a recurring class event and include the time and recurrence if specified.
+      - Include homework or assignments if they appear in a schedule or table with a due date, even if titles are generic (e.g., "Homework 1"). Use the date from the schedule as the event date and infer the type as "Homework".
+      - If an event is called "Section", "Class", "Lecture", or "Session", treat it as a recurring class event and include the time and recurrence if specified.
       - Do not inlude any schoolwide events, such as: Last day of official add/drop, Last day to change registration to or from pass/fail basis, or official enrollment count.
       - If the syllabus includes abbreviations like "TBA" (To Be Announced) or "TBD" (To Be Determined), treat them as missing information and do not include those events.
       - If the syllabus mentions a specific date range for classes, use that to determine the start and end dates for recurring events.
@@ -121,48 +113,64 @@ export async function POST(request: NextRequest) {
       - If the syllabus mentions a specific location for an event, include that location in the \`location\` field.
       - If the syllabus mentions a description for an event, include that description in the \`description\` field.
       - If the syllabus is too short or does not contain enough information, return an empty array.
-      - If the event includes a time, it should be in HH:MM AM/PM format. Convert any 24-hour times to this format. Convert words like "noon" or "midnight" to "12:00 PM" or 12:00 AM respectively.
+      - If the event includes a time, it should be in HH:MM AM/PM format. Convert any 24-hour times to this format. Convert words like "noon" or "midnight" to "12:00 PM" or "12:00 AM" respectively.
       - If the syllabus mentions a final exam date, include it as a "Final" type event.
       - If the syllabus mentions a midterm exam date, include it as a "Midterm" type event.
       - If the event states that it will happen "every week" or "weekly", set the recurrence to "Weekly" and include the day of the week if specified. If no day is specified, omit the recurrence and omit from the output.
       - If the event states that it will happen during class time, set the time to the class time. For example, if the syllabus states that 'Exam 1 will be held during class time', set the time to the class time specified in the syllabus.
-      - If the AI does not find any academic events, return an empty array.
     `;
 
     const part1 = extractedText.substring(0, 15000);
     const part2 = extractedText.substring(15000, 30000);
 
     const runPrompt = async (part: string) => {
-      const completion = await groq.chat.completions.create({
-        model: "llama-3.3-70b-versatile",
-        messages: [
-          systemMessage,
-          {
-            role: "user",
-            content: `${basePrompt}\nSyllabus text:\n${part}`,
-          },
-        ],
-        temperature: 0,
-        max_completion_tokens: 5000,
-        top_p: 1,
-        stream: false,
-        response_format: { type: "json_object" },
-        stop: null,
-      });
+      try {
+        const completion = await groq.chat.completions.create({
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            systemMessage,
+            {
+              role: "user",
+              content: `${basePrompt}\nSyllabus text:\n${part}`,
+            },
+          ],
+          temperature: 0,
+          max_completion_tokens: 5000,
+          top_p: 1,
+          stream: false,
+          response_format: { type: "json_object" },
+          stop: null,
+        });
 
-      return completion.choices[0]?.message?.content || "[]";
+        return completion.choices[0]?.message?.content || "[]";
+      } catch (groqError) {
+        console.error("Groq API error:", groqError);
+        throw new Error("Failed to process text with AI");
+      }
     };
 
-    const [response1, response2] = await Promise.all([
-      runPrompt(part1),
-      runPrompt(part2),
-    ]);
+    let response1 = "[]";
+    let response2 = "[]";
+
+    try {
+      [response1, response2] = await Promise.all([
+        runPrompt(part1),
+        runPrompt(part2),
+      ]);
+    } catch (aiError) {
+      console.error("AI processing error:", aiError);
+      return NextResponse.json(
+        { error: "Failed to analyze syllabus content" },
+        { status: 500 }
+      );
+    }
 
     const extractArray = (response: string): any[] => {
       try {
         const jsonMatch = response.match(/\[[\s\S]*\]/);
         return jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(response);
-      } catch {
+      } catch (parseError) {
+        console.error("JSON parsing error:", parseError, "Response:", response);
         return [];
       }
     };
@@ -171,9 +179,9 @@ export async function POST(request: NextRequest) {
 
     const validatedDates = allDates.map((item: any) => ({
       id: Math.random().toString(36).substr(2, 9),
-      title: item.title,
-      date: item.date,
-      type: item.type?.toLowerCase() || "",
+      title: item.title || "Untitled Event",
+      date: item.date || "",
+      type: item.type?.toLowerCase() || "event",
       time: item.time || "",
       recurrence: item.recurrence || "",
       location: item.location || "",
@@ -188,7 +196,7 @@ export async function POST(request: NextRequest) {
           extractedDates: [],
           processedText: extractedText.substring(0, 500) + "...",
         },
-        { status: 200 }
+        { status: 200 },
       );
     }
 
@@ -201,8 +209,11 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error processing PDF:", error);
     return NextResponse.json(
-      { error: "Failed to process PDF" },
-      { status: 500 }
+      { 
+        error: "Failed to process PDF",
+        details: error instanceof Error ? error.message : "Unknown error"
+      },
+      { status: 500 },
     );
   }
 }
