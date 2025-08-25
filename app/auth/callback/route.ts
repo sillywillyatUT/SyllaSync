@@ -6,46 +6,57 @@ export async function GET(request: Request) {
   const code = requestUrl.searchParams.get("code");
   const redirect_to = requestUrl.searchParams.get("redirect_to");
 
+  // This callback now only handles OAuth (Google) sign-ins
   if (code) {
     const supabase = await createClient();
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
-    if (!error && data.user && data.session) {
+    if (error) {
+      console.error("Auth callback error:", error);
+      return NextResponse.redirect(
+        new URL("/sign-in?error=Authentication failed", requestUrl.origin)
+      );
+    }
+
+    // Handle Google OAuth user creation/token updates
+    if (data.user && data.session) {
       const providerToken = data.session.provider_token;
       const refreshToken = data.session.refresh_token;
 
-      // Check if user exists in users table
-      const { data: existingUser } = await supabase
-        .from("users")
-        .select("id")
-        .eq("id", data.user.id)
-        .single();
+      try {
+        const { data: existingUser } = await supabase
+          .from("users")
+          .select("id")
+          .eq("user_id", data.user.id)
+          .single();
 
-      if (!existingUser) {
-        // Create user in users table
-        await supabase.from("users").insert({
-          id: data.user.id,
-          name: data.user.user_metadata?.full_name || data.user.email?.split("@")[0] || "",
-          full_name: data.user.user_metadata?.full_name || "",
-          email: data.user.email || "",
-          user_id: data.user.id,
-          token_identifier: data.user.id,
-          google_access_token: providerToken,
-          google_refresh_token: refreshToken,
-          created_at: new Date().toISOString(),
-        });
-      } else {
-        // Update tokens if user exists
-        await supabase.from("users").update({
-          google_access_token: providerToken,
-          google_refresh_token: refreshToken,
-        }).eq("id", data.user.id);
+        if (!existingUser) {
+          await supabase.from("users").insert({
+            id: data.user.id,
+            name: data.user.user_metadata?.full_name || data.user.user_metadata?.name || data.user.email?.split("@")[0] || "",
+            full_name: data.user.user_metadata?.full_name || data.user.user_metadata?.name || "",
+            email: data.user.email || "",
+            user_id: data.user.id,
+            token_identifier: data.user.id,
+            avatar_url: data.user.user_metadata?.avatar_url,
+            google_access_token: providerToken,
+            google_refresh_token: refreshToken,
+            created_at: new Date().toISOString(),
+          });
+        } else {
+          await supabase.from("users").update({
+            google_access_token: providerToken,
+            google_refresh_token: refreshToken,
+          }).eq("user_id", data.user.id);
+        }
+      } catch (dbError) {
+        console.error("Database error:", dbError);
       }
     }
   }
 
   const redirectTo = redirect_to || "/upload";
   const redirectUrl = new URL(redirectTo, requestUrl.origin);
-  redirectUrl.search = ""; // prevent query loops
+  redirectUrl.search = "";
   return NextResponse.redirect(redirectUrl);
 }

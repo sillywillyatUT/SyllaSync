@@ -10,6 +10,7 @@ export const signUpAction = async (formData: FormData) => {
   const email = formData.get("email")?.toString();
   const password = formData.get("password")?.toString();
   const fullName = formData.get("full_name")?.toString() || "";
+  const redirectTo = formData.get("redirect_to")?.toString();
   const supabase = await createClient();
 
   if (!email || !password) {
@@ -24,8 +25,10 @@ export const signUpAction = async (formData: FormData) => {
     email,
     password,
     options: {
-      emailRedirectTo: undefined,
-      data: { full_name: fullName, email },
+      data: { 
+        full_name: fullName,
+        name: fullName,
+      },
     },
   });
 
@@ -34,17 +37,10 @@ export const signUpAction = async (formData: FormData) => {
     return encodedRedirect("error", "/sign-up", error.message);
   }
 
-  // Sign in immediately
-  const { error: signInError } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-
-  if (signInError) {
-    return encodedRedirect("error", "/sign-in", signInError.message);
-  }
-
-  return redirect("/upload");
+  // Since email confirmation is disabled, user is automatically signed in
+  // Redirect directly to the intended destination
+  const destination = redirectTo || "/upload";
+  return redirect(destination);
 };
 
 // -------------------- SIGN IN --------------------

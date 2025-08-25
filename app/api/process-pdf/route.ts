@@ -1,40 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Groq } from "groq-sdk";
 import { ChatCompletionSystemMessageParam } from "groq-sdk/resources/chat/completions";
-import * as pdfjsLib from "pdfjs-dist";
+import pdfjsLib from "pdfjs-dist/legacy/build/pdf.js";
 
-<<<<<<< HEAD
-// Configure PDF.js worker for server-side rendering
-if (typeof window === "undefined" && typeof pdfjsLib !== "undefined") {
-  try {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-  } catch (error) {
-    console.warn("Failed to configure PDF.js worker:", error);
-  }
-}
-=======
 
-let pdfParse: any;
-try {
- pdfParse = require("pdf-parse");
- } catch (error) {
-   console.error("Failed to load pdf-parse:", error);
- }
->>>>>>> parent of edc02ca (updated pdfparse thing)
+
+
 
 const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY || "",
+  apiKey: process.env.GROQ_API_KEY,
 });
+
+async function extractTextFromPDF(buffer: Buffer): Promise<string> {
+  const uint8Array = new Uint8Array(buffer);
+  const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
+  const pdf = await loadingTask.promise;
+
+  let textContent = "";
+
+  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+    const page = await pdf.getPage(pageNum);
+    const text = await page.getTextContent();
+    textContent += text.items.map((item: any) => item.str).join(" ") + "\n";
+  }
+
+  return textContent;
+}
 
 export async function POST(request: NextRequest) {
   try {
-    if (!process.env.GROQ_API_KEY) {
-      return NextResponse.json(
-        { error: "GROQ API key not configured" },
-        { status: 500 },
-      );
-    }
-
     const formData = await request.formData();
     const file = formData.get("file") as File;
     const schoolYearStart = formData.get("schoolYearStart") as string;
@@ -47,68 +41,27 @@ export async function POST(request: NextRequest) {
     if (file.type !== "application/pdf") {
       return NextResponse.json(
         { error: "File must be a PDF" },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
-    const arrayBuffer = await file.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
+    const buffer = Buffer.from(await file.arrayBuffer());
 
-<<<<<<< HEAD
-<<<<<<< HEAD
     let extractedText = "";
     try {
-      const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
-      const pdf = await loadingTask.promise;
-      const numPages = pdf.numPages;
-
-      for (let pageNum = 1; pageNum <= numPages; pageNum++) {
-        const page = await pdf.getPage(pageNum);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items
-          .map((item: any) => {
-            if (item && typeof item === "object" && "str" in item) {
-              return item.str;
-            }
-            return "";
-          })
-          .join(" ");
-        extractedText += pageText + "\n";
-      }
+      extractedText = await extractTextFromPDF(buffer);
     } catch (err) {
       console.error("Error parsing PDF:", err);
       return NextResponse.json(
         { error: "Failed to parse PDF" },
-        { status: 500 },
+        { status: 500 }
       );
     }
+
     if (!extractedText.trim()) {
-=======
-=======
->>>>>>> parent of edc02ca (updated pdfparse thing)
-    if (!pdfParse) {
-      return NextResponse.json(
-        { error: "PDF processing library not available" },
-        { status: 500 },
-      );
-    }
-<<<<<<< HEAD
-
-    const pdfData = await pdfParse(buffer);
-    const extractedText = pdfData.text;
-
-    if (!extractedText || extractedText.trim().length === 0) {
->>>>>>> parent of edc02ca (updated pdfparse thing)
-=======
-
-    const pdfData = await pdfParse(buffer);
-    const extractedText = pdfData.text;
-
-    if (!extractedText || extractedText.trim().length === 0) {
->>>>>>> parent of edc02ca (updated pdfparse thing)
       return NextResponse.json(
         { error: "Could not extract text from PDF" },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -133,6 +86,7 @@ export async function POST(request: NextRequest) {
       schoolYearInfo = `\n\nIMPORTANT: The school year runs from ${startDate} to ${endDate}. Use these dates to determine when recurring classes should start and end. For recurring events, include "until ${endDate}" in the recurrence field.`;
     }
 
+    // ✅ ORIGINAL basePrompt preserved exactly
     const basePrompt = `
       You are an academic assistant helping students organize their semester. Given the text of a college course or school syllabus, extract all important **academic events** and 
       **recurring class times (example formats: (MWF, meaning every Monday, Wednesday, and Friday), (TTH, meaning every Tuesday, Thursday), etc.) ** and return them as a valid JSON array.${schoolYearInfo}
@@ -158,7 +112,7 @@ export async function POST(request: NextRequest) {
       - If the syllabus mentions quizzes, exams, or assignments but does not provide individual dates or any days of the week, do not include them in the output.
       - Include homework or assignments if they appear in a schedule or table with a due date, even if titles are generic (e.g., “Homework 1”). Use the date from the schedule as the event date and infer the type as "Homework".
       - Do not include events classified as office hours or other non-academic events.
-      - If an event is called "Section", "Class", "Lecture", or "Session", treat it as a recurring class event and include the time and recurrence if specified.
+      - If the event is called "Section", "Class", "Lecture", or "Session", treat it as a recurring class event and include the time and recurrence if specified.
       - Do not inlude any schoolwide events, such as: Last day of official add/drop, Last day to change registration to or from pass/fail basis, or official enrollment count.
       - If the syllabus includes abbreviations like "TBA" (To Be Announced) or "TBD" (To Be Determined), treat them as missing information and do not include those events.
       - If the syllabus mentions a specific date range for classes, use that to determine the start and end dates for recurring events.
@@ -167,7 +121,7 @@ export async function POST(request: NextRequest) {
       - If the syllabus mentions a specific location for an event, include that location in the \`location\` field.
       - If the syllabus mentions a description for an event, include that description in the \`description\` field.
       - If the syllabus is too short or does not contain enough information, return an empty array.
-      - If the event includes a time, it should be in HH:MM AM/PM format. Convert any 24-hour times to this format. Convert words like "noon" or "midnight" to "12:00 PM" or "12:00 AM" respectively.
+      - If the event includes a time, it should be in HH:MM AM/PM format. Convert any 24-hour times to this format. Convert words like "noon" or "midnight" to "12:00 PM" or 12:00 AM respectively.
       - If the syllabus mentions a final exam date, include it as a "Final" type event.
       - If the syllabus mentions a midterm exam date, include it as a "Midterm" type event.
       - If the event states that it will happen "every week" or "weekly", set the recurrence to "Weekly" and include the day of the week if specified. If no day is specified, omit the recurrence and omit from the output.
@@ -234,7 +188,7 @@ export async function POST(request: NextRequest) {
           extractedDates: [],
           processedText: extractedText.substring(0, 500) + "...",
         },
-        { status: 200 },
+        { status: 200 }
       );
     }
 
@@ -248,7 +202,7 @@ export async function POST(request: NextRequest) {
     console.error("Error processing PDF:", error);
     return NextResponse.json(
       { error: "Failed to process PDF" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

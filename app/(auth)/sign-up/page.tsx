@@ -1,4 +1,4 @@
-"use client"; // Needed for browser validation logic
+"use client";
 
 import { FormMessage, Message } from "@/components/form-message";
 import { SubmitButton } from "@/components/submit-button";
@@ -110,7 +110,7 @@ export default function Signup({
                     type="password"
                     name="password"
                     placeholder="Your password"
-                    minLength={5}
+                    minLength={6}
                     required
                     className="w-full"
                   />
@@ -128,7 +128,7 @@ export default function Signup({
                     type="password"
                     name="confirm_password"
                     placeholder="Re-enter your password"
-                    minLength={5}
+                    minLength={6}
                     required
                     className="w-full"
                   />
@@ -139,10 +139,7 @@ export default function Signup({
                 <p className="text-sm text-red-500 font-medium">{error}</p>
               )}
 
-              <SubmitButton
-                pendingText="Signing up..."
-                className="w-full"
-              >
+              <SubmitButton pendingText="Signing up..." className="w-full">
                 Sign up
               </SubmitButton>
 

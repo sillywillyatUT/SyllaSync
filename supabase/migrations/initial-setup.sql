@@ -48,10 +48,10 @@ BEGIN
     NEW.id,
     NEW.id::text,
     NEW.email,
-    NEW.raw_user_meta_data->>'name',
+    COALESCE(NEW.raw_user_meta_data->>'name', NEW.raw_user_meta_data->>'full_name'),
     NEW.raw_user_meta_data->>'full_name',
     NEW.raw_user_meta_data->>'avatar_url',
-    NEW.email,
+    COALESCE(NEW.email, NEW.id::text), -- Use user ID as fallback if no email
     NEW.created_at,
     NEW.updated_at
   );
@@ -72,7 +72,7 @@ BEGIN
   UPDATE public.users
   SET
     email = NEW.email,
-    name = NEW.raw_user_meta_data->>'name',
+    name = COALESCE(NEW.raw_user_meta_data->>'name', NEW.raw_user_meta_data->>'full_name'),
     full_name = NEW.raw_user_meta_data->>'full_name',
     avatar_url = NEW.raw_user_meta_data->>'avatar_url',
     updated_at = NEW.updated_at
