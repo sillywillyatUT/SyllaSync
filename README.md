@@ -29,7 +29,7 @@ SyllaSync is a modern web application that revolutionizes how students manage th
 
 [View Live Application](https://syllasync.netlify.app)
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 ### Frontend
 - **Framework**: Next.js 14.2.23 (App Router)
@@ -56,7 +56,7 @@ SyllaSync is a modern web application that revolutionizes how students manage th
 - **Type Safety**: TypeScript strict mode
 - **UI Components**: Radix UI primitives
 
-## 📋 Prerequisites
+##  Prerequisites
 
 Before running this project, make sure you have:
 
@@ -66,7 +66,7 @@ Before running this project, make sure you have:
 - Google OAuth credentials (for Google Calendar integration)
 - Groq API key (for AI processing)
 
-## ⚡ Quick Start
+##  Quick Start
 
 ### 1. Clone the Repository
 
