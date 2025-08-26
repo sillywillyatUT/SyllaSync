@@ -1,12 +1,52 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Groq } from "groq-sdk";
 import { ChatCompletionSystemMessageParam } from "groq-sdk/resources/chat/completions";
-// Use proper ES module import - this is the fix!
-import pdfParse from "pdf-parse";
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
+
+// PDF.js serverless extraction function
+async function extractTextWithPDFJS(buffer: Buffer): Promise<string> {
+  try {
+    // Import pdfjs-serverless instead of the legacy build
+    const { getDocument } = await import('pdfjs-serverless');
+    
+    // Load the PDF document
+    const loadingTask = getDocument({ data: new Uint8Array(buffer) });
+    const pdf = await loadingTask.promise;
+    
+    let fullText = '';
+    
+    // Extract text from each page (limit to 50 pages for performance)
+    const maxPages = Math.min(pdf.numPages, 50);
+    for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const textContent = await page.getTextContent();
+      
+      // Reconstruct text with proper spacing
+      const pageText = textContent.items
+        .map((item: any) => {
+          // Handle both TextItem and TextMarkedContent
+          return 'str' in item ? item.str : '';
+        })
+        .filter(str => str.trim()) // Remove empty strings
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      
+      if (pageText.length > 0) {
+        fullText += pageText + '\n';
+      }
+    }
+    
+    return fullText.trim();
+    
+  } catch (error) {
+    console.error('PDF.js extraction error:', error);
+    throw new Error('Failed to extract text using PDF.js');
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,9 +79,8 @@ export async function POST(request: NextRequest) {
 
     let extractedText = "";
     try {
-      // Direct usage - no dynamic require needed
-      const pdfData = await pdfParse(buffer);
-      extractedText = pdfData.text;
+      // Use pdfjs-serverless instead of legacy pdf.js
+      extractedText = await extractTextWithPDFJS(buffer);
     } catch (pdfError) {
       console.error("PDF parsing error:", pdfError);
       return NextResponse.json(
@@ -102,9 +141,11 @@ export async function POST(request: NextRequest) {
       - If the syllabus does not contain class times, look through the text for any reccurring patterns (MWF, TTH) or mentions of class times and generate a "Class" event with the \`recurrence\` field.
       - If the syllabus mentions recurring quizzes, exams, or deadlines without individual dates but includes days of the week (monday, tuesday, wednesday, thursday, friday, saturday, sunday, MWF, TTH, MTWTHF), use the same approach and set appropriate \`recurrence\`. Include the time if applicable.
       - If the syllabus header or top section includes a class time and days of the week (e.g., "MWF 3:00–4:30"), treat that as a recurring class event from the first to last listed date (if available). If dates are missing, leave them blank and note that in the description.
+      - If the first and last day of class are missing, leave \`recurrence\` empty but include a \`description\` saying: "Recurring pattern detected but start/end dates are missing."
       - If the syllabus mentions quizzes, exams, or assignments but does not provide individual dates or any days of the week, do not include them in the output.
       - Include homework or assignments if they appear in a schedule or table with a due date, even if titles are generic (e.g., "Homework 1"). Use the date from the schedule as the event date and infer the type as "Homework".
-      - If an event is called "Section", "Class", "Lecture", or "Session", treat it as a recurring class event and include the time and recurrence if specified.
+      - Do not include events classified as office hours or other non-academic events.
+      - If the event is called "Section", "Class", "Lecture", or "Session", treat it as a recurring class event and include the time and recurrence if specified.
       - Do not inlude any schoolwide events, such as: Last day of official add/drop, Last day to change registration to or from pass/fail basis, or official enrollment count.
       - If the syllabus includes abbreviations like "TBA" (To Be Announced) or "TBD" (To Be Determined), treat them as missing information and do not include those events.
       - If the syllabus mentions a specific date range for classes, use that to determine the start and end dates for recurring events.
@@ -118,6 +159,7 @@ export async function POST(request: NextRequest) {
       - If the syllabus mentions a midterm exam date, include it as a "Midterm" type event.
       - If the event states that it will happen "every week" or "weekly", set the recurrence to "Weekly" and include the day of the week if specified. If no day is specified, omit the recurrence and omit from the output.
       - If the event states that it will happen during class time, set the time to the class time. For example, if the syllabus states that 'Exam 1 will be held during class time', set the time to the class time specified in the syllabus.
+      - If the AI does not find any academic events, return an empty array.
     `;
 
     const part1 = extractedText.substring(0, 15000);
