@@ -34,7 +34,6 @@
     "lucide-react": "^0.468.0",
     "next": "14.2.23",
     "next-themes": "^0.2.1",
-    "pdf-parse": "^1.1.1",
     "pdfjs-serverless": "^1.0.1",
     "prettier": "^3.3.3",
     "radix-ui": "^1.1.3",
