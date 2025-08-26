@@ -11,23 +11,23 @@
 
 SyllaSync is a modern web application that revolutionizes how students manage their academic schedules. Upload your course syllabi, and our AI-powered system will automatically extract important dates (assignments, exams, deadlines) and convert them into calendar events that you can export to Google Calendar, Apple Calendar, or download as .ics files.
 
-### ✨ Key Features
+###  Key Features
 
-- **🤖 AI-Powered Date Extraction**: Advanced text processing to identify and parse key dates from uploaded documents
-- **📁 Multi-Format Support**: Upload PDFs and other document formats with drag-and-drop functionality
-- **✅ Smart Verification**: Review and edit extracted dates before confirming
-- **📅 Multiple Export Options**: 
+- ** AI-Powered Date Extraction**: Advanced text processing to identify and parse key dates from uploaded documents
+- ** Multi-Format Support**: Upload PDFs and other document formats with drag-and-drop functionality
+- ** Smart Verification**: Review and edit extracted dates before confirming
+- ** Multiple Export Options**: 
   - Google Calendar integration
   - Apple Calendar compatibility
   - Standard .ics file download
-- **🔐 Secure Authentication**: Google OAuth and email-based sign-up
-- **📱 Responsive Design**: Works seamlessly on desktop and mobile devices
-- **🌙 Dark Mode Support**: Toggle between light and dark themes
-- **👋 User Onboarding**: Interactive tooltips guide first-time users
+- ** Secure Authentication**: Google OAuth and email-based sign-up
+- ** Responsive Design**: Works seamlessly on desktop and mobile devices
+- ** Dark Mode Support**: Toggle between light and dark themes
+- ** User Onboarding**: Interactive tooltips guide first-time users
 
 ## 🚀 Live Demo
 
-[View Live Application](https://a3a7d409-ff33-425d-b175-4c1e3cb1112e.canvases.tempo.build)
+[View Live Application](https://syllasync.netlify.app)
 
 ## 🛠️ Tech Stack
 
@@ -46,8 +46,8 @@ SyllaSync is a modern web application that revolutionizes how students manage th
 - **Edge Functions**: Supabase Functions
 
 ### AI & Processing
-- **PDF Processing**: pdf-parse
-- **AI Integration**: Groq SDK for intelligent date extraction
+- **PDF Processing**: pdf.js-dist
+- **AI Integration**: Groq SDK for AI date extraction
 - **Calendar Generation**: Custom .ics file generation
 
 ### Development Tools
@@ -151,7 +151,7 @@ SyllaSync/
     └── data/                     # Test PDF files
 ```
 
-## 🔧 Configuration
+##  Configuration
 
 ### Supabase Setup
 
@@ -167,7 +167,7 @@ SyllaSync/
 3. Create OAuth 2.0 credentials
 4. Add authorized redirect URIs
 
-## 🎨 UI Components
+##  UI Components
 
 This project uses [shadcn/ui](https://ui.shadcn.com/) for consistent, accessible UI components:
 
@@ -178,12 +178,11 @@ This project uses [shadcn/ui](https://ui.shadcn.com/) for consistent, accessible
 - **Cards**: Content containers with consistent styling
 - **Tooltips**: Contextual help and onboarding
 
-## 🔐 Authentication Flow
+##  Authentication Flow
 
 1. **Sign Up**: Email/password or Google OAuth
-2. **Email Verification**: Automatic email verification
-3. **Profile Creation**: Automatic user profile setup
-4. **Session Management**: Secure session handling with Supabase
+2. **Profile Creation**: Automatic user profile setup
+3. **Session Management**: Secure session handling with Supabase
 
 ## 📊 Database Schema
 
@@ -211,12 +210,12 @@ CREATE TABLE syllabi (
 );
 ```
 
-## 🚀 Deployment
+##  Deployment
 
-### Vercel (Recommended)
+### Netlify 
 
-1. Connect your GitHub repository to Vercel
-2. Add environment variables in Vercel dashboard
+1. Connect your GitHub repository to netlify
+2. Add environment variables in netlify dashboard
 3. Deploy automatically on push to main branch
 
 ### Manual Deployment
@@ -229,7 +228,7 @@ npm run build
 npm start
 ```
 
-## 🧪 Testing
+##  Testing
 
 Test files are located in the `test/data/` directory:
 
@@ -269,13 +268,12 @@ npm test
 > **Note**: For the most up-to-date commit history, please visit the [GitHub repository](https://github.com/sillywillyatUT/SyllaSync/commits/main)
 
 **Recent Improvements:**
-- ✅ Enhanced user authentication flow
-- ✅ Improved PDF processing capabilities
-- ✅ Added comprehensive error handling
-- ✅ Implemented responsive design
-- ✅ Added dark mode support
-- ✅ Optimized database queries
-- ✅ Enhanced security measures
+-  Enhanced user authentication flow
+-  Improved PDF processing capabilities
+-  Added comprehensive error handling
+-  Implemented responsive design
+-  Optimized database queries
+-  Enhanced security measures
 
 ### Changelog
 
@@ -286,13 +284,13 @@ npm test
 - User authentication system
 - Responsive web interface
 
-## 🐛 Known Issues
+##  Known Issues
 
 - PDF processing may take longer for complex documents
 - Google Calendar integration requires additional OAuth setup
 - Some date formats may require manual verification
 
-## 🔮 Roadmap
+##  Roadmap
 
 - [ ] **Mobile App**: React Native mobile application
 - [ ] **Batch Processing**: Upload multiple syllabi at once
@@ -302,11 +300,11 @@ npm test
 - [ ] **Analytics**: Track assignment completion rates
 - [ ] **API Access**: Public API for third-party integrations
 
-## 📄 License
+##  License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+##  Acknowledgments
 
 - [Next.js](https://nextjs.org/) for the amazing React framework
 - [Supabase](https://supabase.com/) for backend infrastructure
@@ -314,7 +312,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Tailwind CSS](https://tailwindcss.com/) for utility-first styling
 - [Groq](https://groq.com/) for AI processing capabilities
 
-## 📞 Support
+##  Support
 
 If you encounter any issues or have questions:
 
@@ -325,6 +323,6 @@ If you encounter any issues or have questions:
 ---
 
 <div align="center">
-  <p>Made with ❤️ for students everywhere</p>
-  <p>⭐ Star this repo if you find it helpful!</p>
+  <p>Made for students by students</p>
+  <p> Star this repo if you find it helpful!</p>
 </div>
