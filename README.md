@@ -17,12 +17,9 @@ SyllaSync is a modern web application that revolutionizes how students manage th
 - ** Multi-Format Support**: Upload PDFs and other document formats with drag-and-drop functionality
 - ** Smart Verification**: Review and edit extracted dates before confirming
 - ** Multiple Export Options**: 
-  - Google Calendar integration
-  - Apple Calendar compatibility
   - Standard .ics file download
 - ** Secure Authentication**: Google OAuth and email-based sign-up
 - ** Responsive Design**: Works seamlessly on desktop and mobile devices
-- ** Dark Mode Support**: Toggle between light and dark themes
 - ** User Onboarding**: Interactive tooltips guide first-time users
 
 ##  Live Demo
@@ -46,7 +43,7 @@ SyllaSync is a modern web application that revolutionizes how students manage th
 - **Edge Functions**: Supabase Functions
 
 ### AI & Processing
-- **PDF Processing**: pdf.js-dist
+- **PDF Processing**: pdf.js-serverless
 - **AI Integration**: Groq SDK for AI date extraction
 - **Calendar Generation**: Custom .ics file generation
 
@@ -277,18 +274,24 @@ npm test
 
 ### Changelog
 
-#### v1.0.0 (Latest)
+#### v1.0.0 
 - Initial release with core functionality
 - AI-powered date extraction
 - Multi-format calendar export
 - User authentication system
 - Responsive web interface
 
+#### v1.0.1 (Latest)
+- Switched PDF parsing to use PDF.js-serverless to work on serverless domains such as Netlify/Vercel
+- Updated readME
+- Fixed sign-up issues
+
 ##  Known Issues
 
 - PDF processing may take longer for complex documents
 - Google Calendar integration requires additional OAuth setup
 - Some date formats may require manual verification
+- Long syllabus may not process correctly due to token limits
 
 ##  Roadmap
 

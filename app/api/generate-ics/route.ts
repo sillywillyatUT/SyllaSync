@@ -64,9 +64,17 @@ function generateRRule(recurrence: string): string {
   return "";
 }
 
+function sanitizeFilename(filename: string): string {
+  // Remove or replace characters that are invalid in filenames
+  return filename
+    .replace(/[<>:"/\\|?*]/g, '') // Remove invalid characters
+    .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+    .trim(); // Remove leading/trailing whitespace
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { dates }: { dates: ExtractedDate[] } = await request.json();
+    const { dates, className }: { dates: ExtractedDate[]; className?: string } = await request.json();
 
     if (!dates || dates.length === 0) {
       return NextResponse.json({ error: "No dates provided" }, { status: 400 });
@@ -132,10 +140,17 @@ export async function POST(request: NextRequest) {
 
     const icsString = icsContent.join("\r\n");
 
+    // Generate filename based on class name or use default
+    let filename = "calendar-file.ics";
+    if (className) {
+      const sanitizedClassName = sanitizeFilename(className);
+      filename = `${sanitizedClassName}.ics`;
+    }
+
     return new NextResponse(icsString, {
       headers: {
         "Content-Type": "text/calendar",
-        "Content-Disposition": 'attachment; filename="syllabus-calendar.ics"',
+        "Content-Disposition": `attachment; filename="${filename}"`,
       },
     });
   } catch (error) {
