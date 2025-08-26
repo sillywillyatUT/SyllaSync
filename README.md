@@ -25,7 +25,7 @@ SyllaSync is a modern web application that revolutionizes how students manage th
 - ** Dark Mode Support**: Toggle between light and dark themes
 - ** User Onboarding**: Interactive tooltips guide first-time users
 
-## 🚀 Live Demo
+##  Live Demo
 
 [View Live Application](https://syllasync.netlify.app)
 
@@ -119,7 +119,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) to view the application.
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 SyllaSync/
@@ -184,7 +184,7 @@ This project uses [shadcn/ui](https://ui.shadcn.com/) for consistent, accessible
 2. **Profile Creation**: Automatic user profile setup
 3. **Session Management**: Secure session handling with Supabase
 
-## 📊 Database Schema
+##  Database Schema
 
 ### Users Table
 ```sql
@@ -237,7 +237,7 @@ Test files are located in the `test/data/` directory:
 npm test
 ```
 
-## 📈 Performance Optimizations
+##  Performance Optimizations
 
 - **Image Optimization**: Next.js automatic image optimization
 - **Code Splitting**: Automatic code splitting with Next.js
@@ -245,7 +245,7 @@ npm test
 - **Lazy Loading**: Component lazy loading where appropriate
 - **Bundle Analysis**: Use `npm run analyze` to analyze bundle size
 
-## 🤝 Contributing
+##  Contributing
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -261,7 +261,7 @@ npm test
 - Test your changes thoroughly
 - Update documentation as needed
 
-## 📝 Recent Changes & Commit History
+##  Recent Changes & Commit History
 
 ### Latest Updates
 
