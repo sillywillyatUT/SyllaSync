@@ -1,4 +1,4 @@
-# SyllaSync 📚
+# SyllaSync 
 
 > Transform your syllabi into organized calendar events with AI-powered date extraction
 
@@ -7,7 +7,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.0-38B2AC?style=flat-square&logo=tailwind-css)](https://tailwindcss.com/)
 
-## 🎯 Overview
+##  Overview
 
 SyllaSync is a modern web application that revolutionizes how students manage their academic schedules. Upload your course syllabi, and our AI-powered system will automatically extract important dates (assignments, exams, deadlines) and convert them into calendar events that you can export to Google Calendar, Apple Calendar, or download as .ics files.
 
