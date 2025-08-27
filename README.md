@@ -114,7 +114,7 @@ Run the database migrations:
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to view the application.
+Open [https://syllasync.netlify.app](http://syllasync.netlify.app) to view the application.
 
 ##  Project Structure
 
