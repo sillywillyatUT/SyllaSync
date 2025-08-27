@@ -11,80 +11,128 @@ interface ExtractedDate {
   location?: string;
 }
 
+function parseTime(timeStr: string, fallbackPeriod?: string): { hours: number; minutes: number } {
+  const parts = timeStr.trim().split(" ");
+  const time = parts[0];
+  let period = parts[1]; // Could be undefined
+  
+  // If no period found in this time, use the fallback period
+  if (!period && fallbackPeriod) {
+    period = fallbackPeriod;
+  }
+  
+  const [hours, minutes] = time.split(":");
+  let hour24 = parseInt(hours);
+
+  if (period?.toUpperCase() === "PM" && hour24 !== 12) {
+    hour24 += 12;
+  } else if (period?.toUpperCase() === "AM" && hour24 === 12) {
+    hour24 = 0;
+  }
+
+  return { hours: hour24, minutes: parseInt(minutes) || 0 };
+}
+
 function formatDateForICS(dateString: string, timeString?: string): string {
   const date = new Date(dateString);
 
   if (timeString) {
-    // Handle time ranges like "12:00 PM – 1:00 PM" or "12:00 PM - 1:00 PM"
-    if (timeString.includes("–") || timeString.includes("-")) {
-      const [startTimeStr] = timeString.split(/[–-]/);
-      const startTime = startTimeStr.trim();
-      const [time, period] = startTime.split(" ");
-      const [hours, minutes] = time.split(":");
-      let hour24 = parseInt(hours);
-
-      if (period === "PM" && hour24 !== 12) {
-        hour24 += 12;
-      } else if (period === "AM" && hour24 === 12) {
-        hour24 = 0;
+    // Handle time ranges like "12:00 PM – 1:00 PM" or "12:00 PM - 1:00 PM" or "3:30 - 5:30 pm"
+    const timeRangeRegex = /([^–\-]+)[–\-]([^–\-]+)/;
+    const timeMatch = timeString.match(timeRangeRegex);
+    
+    if (timeMatch) {
+      // Time range found - extract AM/PM from the entire string first
+      const fullTimeString = timeString.toLowerCase();
+      const hasAM = fullTimeString.includes('am');
+      const hasPM = fullTimeString.includes('pm');
+      
+      const startTimeStr = timeMatch[1].trim();
+      const endTimeStr = timeMatch[2].trim();
+      
+      // Determine the period for start time
+      let startPeriod = '';
+      if (startTimeStr.toLowerCase().includes('am')) {
+        startPeriod = 'AM';
+      } else if (startTimeStr.toLowerCase().includes('pm')) {
+        startPeriod = 'PM';
+      } else {
+        // No explicit period in start time, use context
+        if (hasPM && !hasAM) {
+          startPeriod = 'PM'; // If only PM is mentioned, both times are likely PM
+        } else if (hasAM && !hasPM) {
+          startPeriod = 'AM'; // If only AM is mentioned, both times are likely AM
+        }
       }
-
-      date.setHours(hour24, parseInt(minutes) || 0, 0, 0);
+      
+      const { hours, minutes } = parseTime(startTimeStr, startPeriod);
+      date.setHours(hours, minutes, 0, 0);
     } else {
       // Single time format
-      const [time, period] = timeString.split(" ");
-      const [hours, minutes] = time.split(":");
-      let hour24 = parseInt(hours);
-
-      if (period === "PM" && hour24 !== 12) {
-        hour24 += 12;
-      } else if (period === "AM" && hour24 === 12) {
-        hour24 = 0;
-      }
-
-      date.setHours(hour24, parseInt(minutes) || 0, 0, 0);
+      const { hours, minutes } = parseTime(timeString);
+      date.setHours(hours, minutes, 0, 0);
     }
+  } else {
+    // If no time specified, make it an all-day event by setting to start of day
+    date.setHours(0, 0, 0, 0);
   }
 
-  return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+  // Return in UTC format for timed events, date-only format for all-day events
+  if (timeString) {
+    return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+  } else {
+    // All-day event format (YYYYMMDD)
+    return date.toISOString().split("T")[0].replace(/-/g, "");
+  }
 }
 
 function formatEndDateForICS(dateString: string, timeString?: string): string {
   const date = new Date(dateString);
 
   if (timeString) {
-    // Handle time ranges like "12:00 PM – 1:00 PM" or "12:00 PM - 1:00 PM"
-    if (timeString.includes("–") || timeString.includes("-")) {
-      const [, endTimeStr] = timeString.split(/[–-]/);
-      const endTime = endTimeStr.trim();
-      const [time, period] = endTime.split(" ");
-      const [hours, minutes] = time.split(":");
-      let hour24 = parseInt(hours);
-
-      if (period === "PM" && hour24 !== 12) {
-        hour24 += 12;
-      } else if (period === "AM" && hour24 === 12) {
-        hour24 = 0;
+    // Handle time ranges like "12:00 PM – 1:00 PM" or "12:00 PM - 1:00 PM" or "3:30 - 5:30 pm"
+    const timeRangeRegex = /([^–\-]+)[–\-]([^–\-]+)/;
+    const timeMatch = timeString.match(timeRangeRegex);
+    
+    if (timeMatch) {
+      // Time range found - extract AM/PM from the entire string first
+      const fullTimeString = timeString.toLowerCase();
+      const hasAM = fullTimeString.includes('am');
+      const hasPM = fullTimeString.includes('pm');
+      
+      const startTimeStr = timeMatch[1].trim();
+      const endTimeStr = timeMatch[2].trim();
+      
+      // Determine the period for end time
+      let endPeriod = '';
+      if (endTimeStr.toLowerCase().includes('am')) {
+        endPeriod = 'AM';
+      } else if (endTimeStr.toLowerCase().includes('pm')) {
+        endPeriod = 'PM';
+      } else {
+        // No explicit period in end time, use context
+        if (hasPM && !hasAM) {
+          endPeriod = 'PM'; // If only PM is mentioned, both times are likely PM
+        } else if (hasAM && !hasPM) {
+          endPeriod = 'AM'; // If only AM is mentioned, both times are likely AM
+        }
       }
-
-      date.setHours(hour24, parseInt(minutes) || 0, 0, 0);
+      
+      const { hours, minutes } = parseTime(endTimeStr, endPeriod);
+      date.setHours(hours, minutes, 0, 0);
     } else {
-      // Single time format - add 1 hour duration by default
-      const [time, period] = timeString.split(" ");
-      const [hours, minutes] = time.split(":");
-      let hour24 = parseInt(hours);
-
-      if (period === "PM" && hour24 !== 12) {
-        hour24 += 12;
-      } else if (period === "AM" && hour24 === 12) {
-        hour24 = 0;
-      }
-
-      date.setHours(hour24 + 1, parseInt(minutes) || 0, 0, 0); // Add 1 hour
+      // Single time format - add default 1 hour duration
+      const { hours, minutes } = parseTime(timeString);
+      date.setHours(hours + 1, minutes, 0, 0);
     }
+    
+    return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+  } else {
+    // All-day event - end date should be next day for proper all-day display
+    const nextDay = new Date(date);
+    nextDay.setDate(nextDay.getDate() + 1);
+    return nextDay.toISOString().split("T")[0].replace(/-/g, "");
   }
-
-  return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
 }
 
 function generateRRule(recurrence: string): string {
@@ -123,12 +171,12 @@ function generateRRule(recurrence: string): string {
 function sanitizeFilename(filename: string): string {
   // Remove or replace characters that are invalid in filenames
   return filename
-    .replace(/[<>:"/\\|?*]/g, '') // Remove invalid characters
-    .replace(/\s+/g, '_') // Replace spaces with underscores for cleaner filenames
-    .trim(); // Remove leading/trailing whitespace
+    .replace(/[<>:"/\\|?*]/g, '')
+    .replace(/\s+/g, '_') 
+    .trim(); 
 }
 
-// Extract clean class ID from className for filename
+
 function extractClassIdForFilename(className: string): string {
   if (!className || className === "Unknown Course") {
     return "calendar";
@@ -171,6 +219,7 @@ export async function POST(request: NextRequest) {
     dates.forEach((dateItem) => {
       if (!dateItem.date && !dateItem.recurrence) return;
 
+      const hasTime = dateItem.time && dateItem.time.trim() !== "";
       const eventStart = dateItem.date
         ? formatDateForICS(dateItem.date, dateItem.time)
         : "";
@@ -188,6 +237,11 @@ export async function POST(request: NextRequest) {
 
       if (dateItem.location) {
         icsContent.push(`LOCATION:${dateItem.location}`);
+      }
+
+      // Add TRANSP property to ensure events show as busy time blocks
+      if (hasTime) {
+        icsContent.push("TRANSP:OPAQUE");
       }
 
       if (dateItem.recurrence) {
@@ -210,7 +264,13 @@ export async function POST(request: NextRequest) {
 
         icsContent.push(`DTSTART:${recurringStart}`, `DTEND:${recurringEnd}`);
       } else if (eventStart && eventEnd) {
-        icsContent.push(`DTSTART:${eventStart}`, `DTEND:${eventEnd}`);
+        // Use different property names for all-day vs timed events
+        if (hasTime) {
+          icsContent.push(`DTSTART:${eventStart}`, `DTEND:${eventEnd}`);
+        } else {
+          // All-day events use VALUE=DATE
+          icsContent.push(`DTSTART;VALUE=DATE:${eventStart}`, `DTEND;VALUE=DATE:${eventEnd}`);
+        }
       }
 
       icsContent.push("END:VEVENT");
