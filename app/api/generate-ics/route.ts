@@ -15,17 +15,73 @@ function formatDateForICS(dateString: string, timeString?: string): string {
   const date = new Date(dateString);
 
   if (timeString) {
-    const [time, period] = timeString.split(" ");
-    const [hours, minutes] = time.split(":");
-    let hour24 = parseInt(hours);
+    // Handle time ranges like "12:00 PM – 1:00 PM" or "12:00 PM - 1:00 PM"
+    if (timeString.includes("–") || timeString.includes("-")) {
+      const [startTimeStr] = timeString.split(/[–-]/);
+      const startTime = startTimeStr.trim();
+      const [time, period] = startTime.split(" ");
+      const [hours, minutes] = time.split(":");
+      let hour24 = parseInt(hours);
 
-    if (period === "PM" && hour24 !== 12) {
-      hour24 += 12;
-    } else if (period === "AM" && hour24 === 12) {
-      hour24 = 0;
+      if (period === "PM" && hour24 !== 12) {
+        hour24 += 12;
+      } else if (period === "AM" && hour24 === 12) {
+        hour24 = 0;
+      }
+
+      date.setHours(hour24, parseInt(minutes) || 0, 0, 0);
+    } else {
+      // Single time format
+      const [time, period] = timeString.split(" ");
+      const [hours, minutes] = time.split(":");
+      let hour24 = parseInt(hours);
+
+      if (period === "PM" && hour24 !== 12) {
+        hour24 += 12;
+      } else if (period === "AM" && hour24 === 12) {
+        hour24 = 0;
+      }
+
+      date.setHours(hour24, parseInt(minutes) || 0, 0, 0);
     }
+  }
 
-    date.setHours(hour24, parseInt(minutes) || 0, 0, 0);
+  return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+}
+
+function formatEndDateForICS(dateString: string, timeString?: string): string {
+  const date = new Date(dateString);
+
+  if (timeString) {
+    // Handle time ranges like "12:00 PM – 1:00 PM" or "12:00 PM - 1:00 PM"
+    if (timeString.includes("–") || timeString.includes("-")) {
+      const [, endTimeStr] = timeString.split(/[–-]/);
+      const endTime = endTimeStr.trim();
+      const [time, period] = endTime.split(" ");
+      const [hours, minutes] = time.split(":");
+      let hour24 = parseInt(hours);
+
+      if (period === "PM" && hour24 !== 12) {
+        hour24 += 12;
+      } else if (period === "AM" && hour24 === 12) {
+        hour24 = 0;
+      }
+
+      date.setHours(hour24, parseInt(minutes) || 0, 0, 0);
+    } else {
+      // Single time format - add 1 hour duration by default
+      const [time, period] = timeString.split(" ");
+      const [hours, minutes] = time.split(":");
+      let hour24 = parseInt(hours);
+
+      if (period === "PM" && hour24 !== 12) {
+        hour24 += 12;
+      } else if (period === "AM" && hour24 === 12) {
+        hour24 = 0;
+      }
+
+      date.setHours(hour24 + 1, parseInt(minutes) || 0, 0, 0); // Add 1 hour
+    }
   }
 
   return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
@@ -68,8 +124,26 @@ function sanitizeFilename(filename: string): string {
   // Remove or replace characters that are invalid in filenames
   return filename
     .replace(/[<>:"/\\|?*]/g, '') // Remove invalid characters
-    .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+    .replace(/\s+/g, '_') // Replace spaces with underscores for cleaner filenames
     .trim(); // Remove leading/trailing whitespace
+}
+
+// Extract clean class ID from className for filename
+function extractClassIdForFilename(className: string): string {
+  if (!className || className === "Unknown Course") {
+    return "calendar";
+  }
+
+  // Look for course code pattern (e.g., "MIS 302", "SDS 321", "MATH 2304")
+  const courseCodeMatch = className.match(/([A-Z]{2,4}\s*\d{3,4}[A-Z]?)/);
+  if (courseCodeMatch) {
+    return courseCodeMatch[1].replace(/\s+/g, '_'); // Replace spaces with underscores
+  }
+
+  // If no course code pattern found, use the first part of the className
+  // This handles cases where className might be a longer title
+  const firstPart = className.split(' - ')[0].split(' ').slice(0, 2).join(' ');
+  return firstPart || "calendar";
 }
 
 export async function POST(request: NextRequest) {
@@ -88,6 +162,12 @@ export async function POST(request: NextRequest) {
       "METHOD:PUBLISH",
     ];
 
+    // Add calendar name if class name is provided
+    if (className) {
+      icsContent.push(`X-WR-CALNAME:${className} Schedule`);
+      icsContent.push(`X-WR-CALDESC:Academic calendar for ${className}`);
+    }
+
     dates.forEach((dateItem) => {
       if (!dateItem.date && !dateItem.recurrence) return;
 
@@ -95,7 +175,7 @@ export async function POST(request: NextRequest) {
         ? formatDateForICS(dateItem.date, dateItem.time)
         : "";
       const eventEnd = dateItem.date
-        ? formatDateForICS(dateItem.date, dateItem.time)
+        ? formatEndDateForICS(dateItem.date, dateItem.time)
         : "";
 
       icsContent.push(
@@ -123,7 +203,7 @@ export async function POST(request: NextRequest) {
           baseDate.toISOString(),
           dateItem.time,
         );
-        const recurringEnd = formatDateForICS(
+        const recurringEnd = formatEndDateForICS(
           baseDate.toISOString(),
           dateItem.time,
         );
@@ -140,11 +220,12 @@ export async function POST(request: NextRequest) {
 
     const icsString = icsContent.join("\r\n");
 
-    // Generate filename based on class name or use default
-    let filename = "calendar-file.ics";
+    // Generate filename based on extracted class ID
+    let filename = "calendar.ics";
     if (className) {
-      const sanitizedClassName = sanitizeFilename(className);
-      filename = `${sanitizedClassName}.ics`;
+      const classId = extractClassIdForFilename(className);
+      const sanitizedClassId = sanitizeFilename(classId);
+      filename = `${sanitizedClassId}.ics`;
     }
 
     return new NextResponse(icsString, {

@@ -48,6 +48,45 @@ async function extractTextWithPDFJS(buffer: Buffer): Promise<string> {
   }
 }
 
+// Enhanced data validation and title formatting
+const extractData = (response: string): { className: string; events: any[] } => {
+  try {
+    const parsed = JSON.parse(response);
+    let className = parsed.className || "";
+    
+    // Clean and validate class name
+    if (className) {
+      // Remove common prefixes and clean up
+      className = className
+        .replace(/^(Course|Class):\s*/i, '')
+        .replace(/^\d+\.\s*/, '') // Remove leading numbers like "1. "
+        .trim()
+        .toUpperCase();
+      
+      // Validate it looks like a course code (DEPT + number)
+      const courseCodePattern = /^[A-Z]{2,4}\s*-?\s*\d{3,4}[A-Z]?/;
+      if (!courseCodePattern.test(className)) {
+        // If it doesn't match expected pattern, try to extract from the beginning
+        const match = className.match(/([A-Z]{2,4}\s*-?\s*\d{3,4}[A-Z]?)/);
+        if (match) {
+          className = match[1].replace(/-/g, ' ').replace(/\s+/g, ' ');
+        }
+      } else {
+        // Standardize format: remove hyphens, normalize spaces
+        className = className.replace(/-/g, ' ').replace(/\s+/g, ' ');
+      }
+    }
+    
+    return {
+      className: className || "Unknown Course",
+      events: Array.isArray(parsed.events) ? parsed.events : []
+    };
+  } catch (parseError) {
+    console.error("JSON parsing error:", parseError, "Response:", response);
+    return { className: "Unknown Course", events: [] };
+  }
+};
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -102,7 +141,7 @@ export async function POST(request: NextRequest) {
     const systemMessage: ChatCompletionSystemMessageParam = {
       role: "system",
       content:
-        "You are a helpful assistant that extracts important dates and events from academic syllabi. Always respond with valid JSON arrays.",
+        "You are a helpful assistant that extracts important dates and events from academic syllabi. Always respond with valid JSON objects containing both className and events array. Focus on extracting clear class IDs from the first few lines of the syllabus.",
     };
 
     let schoolYearInfo = "";
@@ -121,12 +160,36 @@ export async function POST(request: NextRequest) {
     }
 
     const basePrompt = `
-      You are an academic assistant helping students organize their semester. Given the text of a college course or school syllabus, extract all important **academic events** and 
-      **recurring class times (example formats: (MWF, meaning every Monday, Wednesday, and Friday), (TTH, meaning every Tuesday, Thursday), etc.) ** and return them as a valid JSON array.${schoolYearInfo}
+      You are an academic assistant helping students organize their semester. Given the text of a college course or school syllabus, extract the class name and all important **academic events** and 
+      **recurring class times (example formats: (MWF, meaning every Monday, Wednesday, Friday), (TTH, meaning every Tuesday, Thursday), etc.) ** and return them as a valid JSON object.${schoolYearInfo}
 
-      Each event must include:
+      Your response must be a JSON object with this structure:
+      {
+        "className": "extracted class name and number (e.g., 'SDS 321', 'MATH 101', 'ENG 304')",
+        "events": [array of events]
+      }
+
+      Class Name Extraction Rules (PRIORITY - Extract from first 3 lines):
+      - **FIRST PRIORITY**: Look for course codes in the very first line or header (e.g., "MIS 302", "SDS 321", "MATH 2304", "CS 101")
+      - **SECOND PRIORITY**: Check the first 2-3 lines for patterns like "Department ### - Course Name" 
+      - **THIRD PRIORITY**: Look for course identifiers in format: DEPT + Number (2-4 digits)
+      - Common patterns to match:
+        * "MIS 302" or "MIS-302" 
+        * "SDS 321" or "SDS-321"
+        * "MATH 2304" or "MATH-2304"
+        * "CS 101" or "CS-101"
+        * "BIO 1406" or "BIO-1406"
+        * "ENG 304K" or "ENG-304K" (with letter suffix)
+      - Clean extraction rules:
+        * Remove extra whitespace and standardize format (e.g., "MIS 302")
+        * If found with course title, prioritize just the code (e.g., "MIS 302" from "MIS 302 - Introduction to Information Systems")
+        * Convert to uppercase department code (e.g., "mis 302" → "MIS 302")
+      - Fallback: If no course code found, use the full course title from the header
+      - If absolutely nothing clear is found, use "Unknown Course"
+
+      Each event in the events array must include:
       - \`type\`: one of ["Assignment", "Exam", "Midterm", "Final", "Quiz", "Class", "Deadline", "Homework", "Lecture", "Section"]
-      - \`title\`: a short title (e.g., "Midterm 1" or "Section ____")
+      - \`title\`: a short title WITHOUT the class name prefix (e.g., "Midterm 1", "Homework 3", "Assignment 2") - the class name will be added automatically
       - \`date\`: in MM/DD/YYYY or Month Day, Year format (leave blank if using \`recurrence\`)
       - \`time\`: start time and end time in HH:MM AM/PM format (e.g., "12:00 PM – 1:00 PM") or leave blank if not applicable
       - \`location\`: if available (optional)
@@ -153,13 +216,13 @@ export async function POST(request: NextRequest) {
       - If the syllabus mentions a specific time for an event, include that time in the \`time\` field.
       - If the syllabus mentions a specific location for an event, include that location in the \`location\` field.
       - If the syllabus mentions a description for an event, include that description in the \`description\` field.
-      - If the syllabus is too short or does not contain enough information, return an empty array.
+      - If the syllabus is too short or does not contain enough information, return an empty events array but still try to extract the class name.
       - If the event includes a time, it should be in HH:MM AM/PM format. Convert any 24-hour times to this format. Convert words like "noon" or "midnight" to "12:00 PM" or "12:00 AM" respectively.
       - If the syllabus mentions a final exam date, include it as a "Final" type event.
       - If the syllabus mentions a midterm exam date, include it as a "Midterm" type event.
       - If the event states that it will happen "every week" or "weekly", set the recurrence to "Weekly" and include the day of the week if specified. If no day is specified, omit the recurrence and omit from the output.
       - If the event states that it will happen during class time, set the time to the class time. For example, if the syllabus states that 'Exam 1 will be held during class time', set the time to the class time specified in the syllabus.
-      - If the AI does not find any academic events, return an empty array.
+      - If the AI does not find any academic events, return an empty events array.
     `;
 
     const part1 = extractedText.substring(0, 15000);
@@ -184,15 +247,15 @@ export async function POST(request: NextRequest) {
           stop: null,
         });
 
-        return completion.choices[0]?.message?.content || "[]";
+        return completion.choices[0]?.message?.content || '{"className": "", "events": []}';
       } catch (groqError) {
         console.error("Groq API error:", groqError);
         throw new Error("Failed to process text with AI");
       }
     };
 
-    let response1 = "[]";
-    let response2 = "[]";
+    let response1 = '{"className": "", "events": []}';
+    let response2 = '{"className": "", "events": []}';
 
     try {
       [response1, response2] = await Promise.all([
@@ -207,28 +270,56 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const extractArray = (response: string): any[] => {
-      try {
-        const jsonMatch = response.match(/\[[\s\S]*\]/);
-        return jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(response);
-      } catch (parseError) {
-        console.error("JSON parsing error:", parseError, "Response:", response);
-        return [];
+    const data1 = extractData(response1);
+    const data2 = extractData(response2);
+
+    // Use the class name from whichever response has it, preferring the first part
+    // Also prefer the one that looks more like a course code
+    const className1 = data1.className;
+    const className2 = data2.className;
+
+    let finalClassName = "Unknown Course";
+    if (className1 !== "Unknown Course" && className2 !== "Unknown Course") {
+      // Both have class names, prefer the one that looks more like a course code
+      const courseCodePattern = /^[A-Z]{2,4}\s+\d{3,4}[A-Z]?$/;
+      if (courseCodePattern.test(className1)) {
+        finalClassName = className1;
+      } else if (courseCodePattern.test(className2)) {
+        finalClassName = className2;
+      } else {
+        finalClassName = className1; // Default to first
       }
-    };
+    } else {
+      finalClassName = className1 !== "Unknown Course" ? className1 : className2;
+    }
 
-    const allDates = [...extractArray(response1), ...extractArray(response2)];
+    const allEvents = [...data1.events, ...data2.events];
 
-    const validatedDates = allDates.map((item: any) => ({
-      id: Math.random().toString(36).substr(2, 9),
-      title: item.title || "Untitled Event",
-      date: item.date || "",
-      type: item.type?.toLowerCase() || "event",
-      time: item.time || "",
-      recurrence: item.recurrence || "",
-      location: item.location || "",
-      description: item.description || "",
-    }));
+    const validatedDates = allEvents.map((item: any) => {
+      // Clean the event title to avoid double class names
+      let eventTitle = item.title || "Untitled Event";
+      
+      // Remove class name if it's already in the title to avoid duplication
+      if (finalClassName !== "Unknown Course" && eventTitle.includes(finalClassName)) {
+        eventTitle = eventTitle.replace(new RegExp(`^${finalClassName}\\s*-?\\s*`, 'i'), '').trim();
+      }
+      
+      // Ensure we don't have empty titles after cleaning
+      if (!eventTitle || eventTitle.length === 0) {
+        eventTitle = "Untitled Event";
+      }
+      
+      return {
+        id: Math.random().toString(36).substr(2, 9),
+        title: `${finalClassName} - ${eventTitle}`, // Clean format: "MIS 302 - Homework 1"
+        date: item.date || "",
+        type: item.type?.toLowerCase() || "event",
+        time: item.time || "",
+        recurrence: item.recurrence || "",
+        location: item.location || "",
+        description: item.description || "",
+      };
+    });
 
     if (validatedDates.length === 0) {
       return NextResponse.json(
@@ -236,6 +327,7 @@ export async function POST(request: NextRequest) {
           warning:
             "No academic dates were extracted. Make sure this is a valid syllabus.",
           extractedDates: [],
+          className: finalClassName,
           processedText: extractedText.substring(0, 500) + "...",
         },
         { status: 200 },
@@ -245,6 +337,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       extractedDates: validatedDates,
+      className: finalClassName,
       textLength: extractedText.length,
       processedText: extractedText.substring(0, 500) + "...",
     });

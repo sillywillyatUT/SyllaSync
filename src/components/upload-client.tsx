@@ -76,6 +76,7 @@ export default function UploadClient() {
     dayjs().month(7).date(15), // August 15th
     dayjs().add(1, "year").month(4).date(15), // May 15th next year
   ]);
+  const [extractedClassName, setExtractedClassName] = useState<string>("");
   const [showDatePickers, setShowDatePickers] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const removeExtractedDate = (id: string) => {
@@ -83,22 +84,23 @@ export default function UploadClient() {
   };
 
   const resetUpload = () => {
-    setFiles([]);
-    setExtractedDates([]);
-    setShowResults(false);
-    setIsProcessing(false);
-    setRecurringClassOptions([]);
-    setShowRecurringSelection(false);
-    setIsExportingToGoogle(false);
-    setShowDatePickers(false);
-    setSemesterDateRange([
-      dayjs().month(7).date(15), // August 15th
-      dayjs().add(1, "year").month(4).date(15), // May 15th next year
-    ]);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
+  setFiles([]);
+  setExtractedDates([]);
+  setExtractedClassName(""); 
+  setShowResults(false);
+  setIsProcessing(false);
+  setRecurringClassOptions([]);
+  setShowRecurringSelection(false);
+  setIsExportingToGoogle(false);
+  setShowDatePickers(false);
+  setSemesterDateRange([
+    dayjs().month(7).date(15), // August 15th
+    dayjs().add(1, "year").month(4).date(15), // May 15th next year
+  ]);
+  if (fileInputRef.current) {
+    fileInputRef.current.value = "";
+  }
+};
 
   const acceptedFileTypes = [".pdf", "application/pdf"];
 
@@ -190,134 +192,143 @@ export default function UploadClient() {
   };
 
   const processFiles = async () => {
-    setIsProcessing(true);
+  setIsProcessing(true);
 
-    try {
-      const successfulFiles = files.filter((f) => f.status === "success");
+  try {
+    const successfulFiles = files.filter((f) => f.status === "success");
 
-      if (successfulFiles.length === 0) {
-        throw new Error("No files to process");
-      }
+    if (successfulFiles.length === 0) {
+      throw new Error("No files to process");
+    }
 
-      // Process each PDF file
-      const allExtractedDates: ExtractedDate[] = [];
+    // Process each PDF file
+    const allExtractedDates: ExtractedDate[] = [];
+    let className = ""; // Store the className from processing
 
-      for (const uploadedFile of successfulFiles) {
-        if (uploadedFile.file.type === "application/pdf") {
-          const formData = new FormData();
-          formData.append("file", uploadedFile.file);
+    for (const uploadedFile of successfulFiles) {
+      if (uploadedFile.file.type === "application/pdf") {
+        const formData = new FormData();
+        formData.append("file", uploadedFile.file);
 
-          // Add semester dates if available and checkbox is checked
-          if (showDatePickers && semesterDateRange) {
-            formData.append(
-              "semesterStart",
-              semesterDateRange[0].toISOString(),
-            );
-            formData.append("semesterEnd", semesterDateRange[1].toISOString());
+        // Add semester dates if available and checkbox is checked
+        if (showDatePickers && semesterDateRange) {
+          formData.append(
+            "semesterStart",
+            semesterDateRange[0].toISOString(),
+          );
+          formData.append("semesterEnd", semesterDateRange[1].toISOString());
+        }
+
+        const response = await fetch("/api/process-pdf", {
+          method: "POST",
+          body: formData,
+        });
+
+        const contentType = response.headers.get("content-type") || "";
+        if (!response.ok || !contentType.includes("application/json")) {
+          const text = await response.text();
+          console.error("Unexpected response:", text);
+          throw new Error(
+            `Unexpected response (${response.status}): ${text.slice(0, 200)}`,
+          );
+        }
+
+        const result = await response.json();
+
+        if (result.success && result.extractedDates) {
+          // Store the className from the first processed file
+          if (!className && result.className) {
+            className = result.className;
           }
 
-          const response = await fetch("/api/process-pdf", {
-            method: "POST",
-            body: formData,
-          });
-
-          const contentType = response.headers.get("content-type") || "";
-          if (!response.ok || !contentType.includes("application/json")) {
-            const text = await response.text();
-            console.error("Unexpected response:", text);
-            throw new Error(
-              `Unexpected response (${response.status}): ${text.slice(0, 200)}`,
-            );
-          }
-
-          const result = await response.json();
-
-          if (result.success && result.extractedDates) {
-            // Filter out dates without specific dates or recurring patterns
-            const validDates = result.extractedDates.filter(
-              (dateItem: ExtractedDate) => {
-                // Include if it has a specific date
-                if (
-                  dateItem.date &&
-                  dateItem.date !== "" &&
-                  !dateItem.date.includes("throughout")
-                ) {
-                  return true;
-                }
-                // Include if it has recurring pattern like "every Friday"
-                if (
-                  dateItem.recurrence &&
-                  (dateItem.recurrence.includes("every") ||
-                    dateItem.recurrence.includes("weekly"))
-                ) {
-                  return true;
-                }
-                return false;
-              },
-            );
-
-            // Check for multiple recurring class times with different sections
-            const recurringClasses = validDates.filter(
-              (dateItem: ExtractedDate) =>
-                dateItem.type === "class" &&
+          // Filter out dates without specific dates or recurring patterns
+          const validDates = result.extractedDates.filter(
+            (dateItem: ExtractedDate) => {
+              // Include if it has a specific date
+              if (
+                dateItem.date &&
+                dateItem.date !== "" &&
+                !dateItem.date.includes("throughout")
+              ) {
+                return true;
+              }
+              // Include if it has recurring pattern like "every Friday"
+              if (
                 dateItem.recurrence &&
-                dateItem.sectionNumber,
+                (dateItem.recurrence.includes("every") ||
+                  dateItem.recurrence.includes("weekly"))
+              ) {
+                return true;
+              }
+              return false;
+            },
+          );
+
+          // Check for multiple recurring class times with different sections
+          const recurringClasses = validDates.filter(
+            (dateItem: ExtractedDate) =>
+              dateItem.type === "class" &&
+              dateItem.recurrence &&
+              dateItem.sectionNumber,
+          );
+
+          if (recurringClasses.length > 1) {
+            const options = recurringClasses.map(
+              (classItem: ExtractedDate) => ({
+                id: classItem.id,
+                title: classItem.title,
+                sectionNumber: classItem.sectionNumber || "Unknown",
+                time: classItem.time || "Unknown",
+                selected: false,
+              }),
             );
-
-            if (recurringClasses.length > 1) {
-              const options = recurringClasses.map(
-                (classItem: ExtractedDate) => ({
-                  id: classItem.id,
-                  title: classItem.title,
-                  sectionNumber: classItem.sectionNumber || "Unknown",
-                  time: classItem.time || "Unknown",
-                  selected: false,
-                }),
-              );
-              setRecurringClassOptions(options);
-              setShowRecurringSelection(true);
-            }
-
-            allExtractedDates.push(...validDates);
+            setRecurringClassOptions(options);
+            setShowRecurringSelection(true);
           }
+
+          allExtractedDates.push(...validDates);
         }
       }
-
-      // Update syllabi count in database
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (user && successfulFiles.length > 0) {
-        const { data: currentProfile } = await supabase
-          .from("users")
-          .select("syllabi_processed")
-          .eq("user_id", user.id)
-          .single();
-
-        const currentCount = currentProfile?.syllabi_processed || 0;
-        const newCount = currentCount + successfulFiles.length;
-
-        await supabase
-          .from("users")
-          .update({ syllabi_processed: newCount })
-          .eq("user_id", user.id);
-      }
-
-      setExtractedDates(allExtractedDates);
-      setIsProcessing(false);
-      setShowResults(true);
-    } catch (error) {
-      console.error("Error processing files:", error);
-      setIsProcessing(false);
-
-      // Show error to user (you might want to add a toast notification here)
-      alert(
-        `Error processing files: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
     }
-  };
+
+    // Store the className for later use
+    setExtractedClassName(className);
+
+    // Update syllabi count in database
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user && successfulFiles.length > 0) {
+      const { data: currentProfile } = await supabase
+        .from("users")
+        .select("syllabi_processed")
+        .eq("user_id", user.id)
+        .single();
+
+      const currentCount = currentProfile?.syllabi_processed || 0;
+      const newCount = currentCount + successfulFiles.length;
+
+      await supabase
+        .from("users")
+        .update({ syllabi_processed: newCount })
+        .eq("user_id", user.id);
+    }
+
+    setExtractedDates(allExtractedDates);
+    setIsProcessing(false);
+    setShowResults(true);
+  } catch (error) {
+    console.error("Error processing files:", error);
+    setIsProcessing(false);
+
+    // Show error to user (you might want to add a toast notification here)
+    alert(
+      `Error processing files: ${error instanceof Error ? error.message : "Unknown error"}`,
+    );
+  }
+};
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return "0 Bytes";
@@ -473,33 +484,44 @@ export default function UploadClient() {
   };
 
   const downloadICSFile = async () => {
-    try {
-      const response = await fetch("/api/generate-ics", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ dates: extractedDates }),
-      });
+  try {
+    console.log("Downloading ICS with className:", extractedClassName); // Debug log
+    
+    const response = await fetch("/api/generate-ics", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ 
+        dates: extractedDates,
+        className: extractedClassName // ← Add this line!
+      }),
+    });
 
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "syllabus-calendar.ics";
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      } else {
-        alert("Failed to generate ICS file");
-      }
-    } catch (error) {
-      console.error("Error downloading ICS file:", error);
-      alert("Error downloading ICS file");
+    if (response.ok) {
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      
+      // The filename will now be set by the server based on className
+      const contentDisposition = response.headers.get('content-disposition');
+      const filenameMatch = contentDisposition?.match(/filename="([^"]+)"/);
+      const filename = filenameMatch ? filenameMatch[1] : "syllabus-calendar.ics";
+      
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } else {
+      alert("Failed to generate ICS file");
     }
-  };
+  } catch (error) {
+    console.error("Error downloading ICS file:", error);
+    alert("Error downloading ICS file");
+  }
+};
 
   const exportToAppleCalendar = () => {
     // Apple Calendar uses the same ICS format, so we can reuse the download function
