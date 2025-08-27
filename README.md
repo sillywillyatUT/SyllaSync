@@ -271,6 +271,7 @@ npm test
 -  Implemented responsive design
 -  Optimized database queries
 -  Enhanced security measures
+-  Fixed naming issue in ics file generation and event naming
 
 ### Changelog
 
@@ -281,10 +282,14 @@ npm test
 - User authentication system
 - Responsive web interface
 
-#### v1.0.1 (Latest)
+#### v1.0.1 
 - Switched PDF parsing to use PDF.js-serverless to work on serverless domains such as Netlify/Vercel
-- Updated readME
 - Fixed sign-up issues
+
+#### v1.0.2 (Latest)
+- Fixed QOL issues (fixed naming ics file to include class ID into name and events
+- Updated AI prompt to grab the class ID from the top of the syllabus
+- UI Fixes so the user knows what class has an assignment
 
 ##  Known Issues
 
