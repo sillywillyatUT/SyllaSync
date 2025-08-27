@@ -287,7 +287,7 @@ npm test
 - Fixed sign-up issues
 
 #### v1.0.2 (Latest)
-- Fixed QOL issues (fixed naming ics file to include class ID into name and events
+- Fixed QOL issues (fixed naming ics file to include class ID into name and events)
 - Updated AI prompt to grab the class ID from the top of the syllabus
 - UI Fixes so the user knows what class has an assignment
 
