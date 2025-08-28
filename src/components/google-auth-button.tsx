@@ -11,41 +11,77 @@ export default function GoogleAuthButton() {
   const supabase = createClient();
 
   useEffect(() => {
+    console.log(`[GOOGLE_AUTH] Component mounted, checking current user`);
+    
     // Check if user is already logged in
     const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setUser(user);
+      try {
+        const {
+          data: { user },
+          error
+        } = await supabase.auth.getUser();
+        
+        console.log(`[GOOGLE_AUTH] Current user check:`, {
+          user: user ? `${user.email} (${user.id})` : 'null',
+          error: error?.message || 'none'
+        });
+        
+        setUser(user);
+      } catch (error) {
+        console.error(`[GOOGLE_AUTH] Error checking current user:`, error);
+        setUser(null);
+      }
     };
 
     getUser();
 
     // Listen for auth changes
+    console.log(`[GOOGLE_AUTH] Setting up auth state listener`);
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log(`[GOOGLE_AUTH] Auth state change:`, {
+        event,
+        user: session?.user ? `${session.user.email} (${session.user.id})` : 'null',
+        sessionId: session?.access_token ? session.access_token.substring(0, 20) + '...' : 'none'
+      });
+      
       setUser(session?.user ?? null);
 
       if (event === "SIGNED_IN") {
-        console.log("User signed in successfully");
+        console.log(`[GOOGLE_AUTH] User signed in successfully:`, session?.user.email);
       } else if (event === "SIGNED_OUT") {
-        console.log("User signed out");
+        console.log(`[GOOGLE_AUTH] User signed out`);
+      } else if (event === "TOKEN_REFRESHED") {
+        console.log(`[GOOGLE_AUTH] Token refreshed for user:`, session?.user.email);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      console.log(`[GOOGLE_AUTH] Cleaning up auth listener`);
+      subscription.unsubscribe();
+    };
   }, [supabase]);
 
   const handleGoogleSignIn = async () => {
     try {
+      console.log(`[GOOGLE_AUTH] Starting Google sign-in process`);
       setIsLoading(true);
 
-      // Clear any existing session first
-      await supabase.auth.signOut();
+      // Check current session before signing out
+      const { data: currentSession } = await supabase.auth.getSession();
+      if (currentSession.session) {
+        console.log(`[GOOGLE_AUTH] Current session exists, signing out first:`, currentSession.session.user.email);
+        await supabase.auth.signOut();
+      } else {
+        console.log(`[GOOGLE_AUTH] No current session found`);
+      }
 
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
+      const redirectUrl = `${window.location.origin}/auth/callback?redirect_to=${encodeURIComponent("/upload")}`;
+      console.log(`[GOOGLE_AUTH] Redirect URL:`, redirectUrl);
+
+      const signInOptions = {
+        provider: "google" as const,
         options: {
           scopes: [
             "https://www.googleapis.com/auth/calendar",
@@ -58,32 +94,61 @@ export default function GoogleAuthButton() {
             prompt: "consent select_account",
             include_granted_scopes: "true",
           },
-          redirectTo: `${window.location.origin}/auth/callback?redirect_to=${encodeURIComponent("/upload")}`,
+          redirectTo: redirectUrl,
         },
+      };
+
+      console.log(`[GOOGLE_AUTH] Sign-in options:`, {
+        provider: signInOptions.provider,
+        scopes: signInOptions.options.scopes,
+        queryParams: signInOptions.options.queryParams,
+        redirectTo: signInOptions.options.redirectTo
+      });
+
+      const { data, error } = await supabase.auth.signInWithOAuth(signInOptions);
+
+      console.log(`[GOOGLE_AUTH] Sign-in response:`, {
+        data: data ? 'present' : 'null',
+        error: error?.message || 'none'
       });
 
       if (error) {
-        console.error("Error signing in with Google:", error.message);
+        console.error(`[GOOGLE_AUTH] Error signing in with Google:`, error);
         setIsLoading(false);
+        return;
       }
+
+      console.log(`[GOOGLE_AUTH] OAuth sign-in initiated successfully`);
       // Don't set loading to false here, let the redirect handle it
     } catch (error) {
-      console.error("Unexpected error:", error);
+      console.error(`[GOOGLE_AUTH] Unexpected error:`, error);
       setIsLoading(false);
     }
   };
 
   const handleSignOut = async () => {
-    setIsLoading(true);
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error("Error signing out:", error);
+    try {
+      console.log(`[GOOGLE_AUTH] Starting sign-out process`);
+      setIsLoading(true);
+      
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error(`[GOOGLE_AUTH] Error signing out:`, error);
+      } else {
+        console.log(`[GOOGLE_AUTH] Sign-out successful`);
+      }
+      
+      setIsLoading(false);
+    } catch (error) {
+      console.error(`[GOOGLE_AUTH] Unexpected sign-out error:`, error);
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   // If user is already signed in, show sign out option
   if (user) {
+    console.log(`[GOOGLE_AUTH] Rendering signed-in state for:`, user.email);
     return (
       <div className="flex flex-col items-center gap-2">
         <p className="text-sm text-gray-600">Signed in as {user.email}</p>
@@ -99,6 +164,7 @@ export default function GoogleAuthButton() {
     );
   }
 
+  console.log(`[GOOGLE_AUTH] Rendering sign-in state`);
   return (
     <Button
       onClick={handleGoogleSignIn}
