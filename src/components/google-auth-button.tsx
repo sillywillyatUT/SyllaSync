@@ -2,23 +2,57 @@
 
 import { Button } from "./ui/button";
 import { createClient } from "../../supabase/client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { User } from "@supabase/supabase-js";
 
 export default function GoogleAuthButton() {
   const [isLoading, setIsLoading] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
   const supabase = createClient();
+
+  useEffect(() => {
+    // Check if user is already logged in
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    };
+    
+    getUser();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+      
+      if (event === 'SIGNED_IN') {
+        console.log('User signed in successfully');
+      } else if (event === 'SIGNED_OUT') {
+        console.log('User signed out');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase]);
 
   const handleGoogleSignIn = async () => {
     try {
       setIsLoading(true);
 
+      // Sign out any existing session first to avoid conflicts
+      await supabase.auth.signOut();
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          scopes: "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile",
+          scopes: [
+            "https://www.googleapis.com/auth/calendar",
+            "https://www.googleapis.com/auth/calendar.events",
+            "https://www.googleapis.com/auth/userinfo.email",
+            "https://www.googleapis.com/auth/userinfo.profile"
+          ].join(" "),
           queryParams: {
-            access_type: 'offline', // for refresh token
-            prompt: 'consent',      // consent screen
+            access_type: 'offline',
+            prompt: 'consent',
+            include_granted_scopes: 'true'
           },
           redirectTo: `${window.location.origin}/auth/callback?redirect_to=${encodeURIComponent("/upload")}`,
         },
@@ -26,13 +60,42 @@ export default function GoogleAuthButton() {
 
       if (error) {
         console.error("Error signing in with Google:", error.message);
+        setIsLoading(false);
       }
+      // Don't set loading to false here, let the auth state change handle it
     } catch (error) {
       console.error("Unexpected error:", error);
-    } finally {
       setIsLoading(false);
     }
   };
+
+  const handleSignOut = async () => {
+    setIsLoading(true);
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("Error signing out:", error);
+    }
+    setIsLoading(false);
+  };
+
+  // If user is already signed in, show sign out option
+  if (user) {
+    return (
+      <div className="flex flex-col items-center gap-2">
+        <p className="text-sm text-gray-600">
+          Signed in as {user.email}
+        </p>
+        <Button
+          onClick={handleSignOut}
+          disabled={isLoading}
+          variant="outline"
+          className="border-gray-200 hover:bg-gray-50 hover:border-red-200 transition-all duration-200"
+        >
+          {isLoading ? "Signing out..." : "Sign Out"}
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <Button
