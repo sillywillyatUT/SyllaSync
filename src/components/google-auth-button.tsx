@@ -13,20 +13,24 @@ export default function GoogleAuthButton() {
   useEffect(() => {
     // Check if user is already logged in
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       setUser(user);
     };
-    
+
     getUser();
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
-      
-      if (event === 'SIGNED_IN') {
-        console.log('User signed in successfully');
-      } else if (event === 'SIGNED_OUT') {
-        console.log('User signed out');
+
+      if (event === "SIGNED_IN") {
+        console.log("User signed in successfully");
+      } else if (event === "SIGNED_OUT") {
+        console.log("User signed out");
       }
     });
 
@@ -37,9 +41,6 @@ export default function GoogleAuthButton() {
     try {
       setIsLoading(true);
 
-      // Sign out any existing session first to avoid conflicts
-      await supabase.auth.signOut();
-
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -47,12 +48,12 @@ export default function GoogleAuthButton() {
             "https://www.googleapis.com/auth/calendar",
             "https://www.googleapis.com/auth/calendar.events",
             "https://www.googleapis.com/auth/userinfo.email",
-            "https://www.googleapis.com/auth/userinfo.profile"
+            "https://www.googleapis.com/auth/userinfo.profile",
           ].join(" "),
           queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-            include_granted_scopes: 'true'
+            access_type: "offline",
+            prompt: "select_account",
+            include_granted_scopes: "true",
           },
           redirectTo: `${window.location.origin}/auth/callback?redirect_to=${encodeURIComponent("/upload")}`,
         },
@@ -62,7 +63,7 @@ export default function GoogleAuthButton() {
         console.error("Error signing in with Google:", error.message);
         setIsLoading(false);
       }
-      // Don't set loading to false here, let the auth state change handle it
+      // Don't set loading to false here, let the redirect handle it
     } catch (error) {
       console.error("Unexpected error:", error);
       setIsLoading(false);
@@ -82,9 +83,7 @@ export default function GoogleAuthButton() {
   if (user) {
     return (
       <div className="flex flex-col items-center gap-2">
-        <p className="text-sm text-gray-600">
-          Signed in as {user.email}
-        </p>
+        <p className="text-sm text-gray-600">Signed in as {user.email}</p>
         <Button
           onClick={handleSignOut}
           disabled={isLoading}

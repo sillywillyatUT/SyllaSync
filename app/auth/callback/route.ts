@@ -9,37 +9,40 @@ export async function GET(request: Request) {
   if (!code) {
     console.error("No authorization code received");
     return NextResponse.redirect(
-      new URL("/sign-in?error=No authorization code", requestUrl.origin)
+      new URL("/sign-in?error=No authorization code", requestUrl.origin),
     );
   }
 
   const supabase = await createClient();
-  
+
   try {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (error) {
       console.error("Auth callback error:", error);
       return NextResponse.redirect(
-        new URL(`/sign-in?error=${encodeURIComponent(error.message)}`, requestUrl.origin)
+        new URL(
+          `/sign-in?error=${encodeURIComponent(error.message)}`,
+          requestUrl.origin,
+        ),
       );
     }
 
     if (!data.user || !data.session) {
       console.error("No user or session data received");
       return NextResponse.redirect(
-        new URL("/sign-in?error=Authentication failed", requestUrl.origin)
+        new URL("/sign-in?error=Authentication failed", requestUrl.origin),
       );
     }
 
     // Extract tokens
     const providerToken = data.session.provider_token;
     const refreshToken = data.session.provider_refresh_token; // Note: provider_refresh_token, not refresh_token
-    
+
     if (!providerToken) {
       console.error("No Google access token received");
       return NextResponse.redirect(
-        new URL("/sign-in?error=Missing Google permissions", requestUrl.origin)
+        new URL("/sign-in?error=Missing Google permissions", requestUrl.origin),
       );
     }
 
@@ -51,7 +54,8 @@ export async function GET(request: Request) {
         .eq("user_id", data.user.id)
         .maybeSingle(); // Use maybeSingle instead of single to avoid errors when no user found
 
-      if (selectError && selectError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+      if (selectError && selectError.code !== "PGRST116") {
+        // PGRST116 is "no rows returned"
         throw selectError;
       }
 
@@ -59,11 +63,15 @@ export async function GET(request: Request) {
         // Create new user
         const { error: insertError } = await supabase.from("users").insert({
           user_id: data.user.id, // Remove duplicate id field
-          name: data.user.user_metadata?.full_name || 
-                data.user.user_metadata?.name || 
-                data.user.email?.split("@")[0] || "",
-          full_name: data.user.user_metadata?.full_name || 
-                    data.user.user_metadata?.name || "",
+          name:
+            data.user.user_metadata?.full_name ||
+            data.user.user_metadata?.name ||
+            data.user.email?.split("@")[0] ||
+            "",
+          full_name:
+            data.user.user_metadata?.full_name ||
+            data.user.user_metadata?.name ||
+            "",
           email: data.user.email || "",
           token_identifier: data.user.id,
           avatar_url: data.user.user_metadata?.avatar_url,
@@ -83,11 +91,15 @@ export async function GET(request: Request) {
             google_access_token: providerToken,
             google_refresh_token: refreshToken,
             // Update other fields that might have changed
-            name: data.user.user_metadata?.full_name || 
-                  data.user.user_metadata?.name || 
-                  data.user.email?.split("@")[0] || "",
-            full_name: data.user.user_metadata?.full_name || 
-                      data.user.user_metadata?.name || "",
+            name:
+              data.user.user_metadata?.full_name ||
+              data.user.user_metadata?.name ||
+              data.user.email?.split("@")[0] ||
+              "",
+            full_name:
+              data.user.user_metadata?.full_name ||
+              data.user.user_metadata?.name ||
+              "",
             avatar_url: data.user.user_metadata?.avatar_url,
           })
           .eq("user_id", data.user.id);
@@ -98,7 +110,6 @@ export async function GET(request: Request) {
       }
 
       console.log("User data updated successfully");
-      
     } catch (dbError) {
       console.error("Database error:", dbError);
       // Don't redirect to error page for DB errors, as auth succeeded
@@ -108,14 +119,15 @@ export async function GET(request: Request) {
     // Successful authentication
     const redirectTo = redirect_to || "/upload";
     const redirectUrl = new URL(redirectTo, requestUrl.origin);
-    redirectUrl.search = "";
-    
+
     return NextResponse.redirect(redirectUrl);
-    
   } catch (authError) {
     console.error("Authentication error:", authError);
     return NextResponse.redirect(
-      new URL(`/sign-in?error=${encodeURIComponent("Authentication failed")}`, requestUrl.origin)
+      new URL(
+        `/sign-in?error=${encodeURIComponent("Authentication failed")}`,
+        requestUrl.origin,
+      ),
     );
   }
 }
