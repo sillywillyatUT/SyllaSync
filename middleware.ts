@@ -3,13 +3,13 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(request: NextRequest) {
-  // Handle authentication session update
-  const response = await updateSession(request);
-
-  // Skip auth check for auth callback to prevent redirect loops
+  // Skip auth processing entirely for auth callback to prevent interference
   if (request.nextUrl.pathname.startsWith("/auth/callback")) {
-    return response;
+    return NextResponse.next();
   }
+
+  // Handle authentication session update for other routes
+  const response = await updateSession(request);
 
   // Add protection for upload page - only allow authenticated users
   if (request.nextUrl.pathname === "/upload") {

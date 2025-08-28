@@ -41,6 +41,9 @@ export default function GoogleAuthButton() {
     try {
       setIsLoading(true);
 
+      // Clear any existing session first
+      await supabase.auth.signOut();
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -52,7 +55,7 @@ export default function GoogleAuthButton() {
           ].join(" "),
           queryParams: {
             access_type: "offline",
-            prompt: "select_account",
+            prompt: "consent select_account",
             include_granted_scopes: "true",
           },
           redirectTo: `${window.location.origin}/auth/callback?redirect_to=${encodeURIComponent("/upload")}`,

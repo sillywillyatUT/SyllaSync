@@ -16,6 +16,9 @@ export async function GET(request: Request) {
   const supabase = await createClient();
 
   try {
+    // Clear any existing session first
+    await supabase.auth.signOut();
+
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (error) {
@@ -116,36 +119,12 @@ export async function GET(request: Request) {
       // The user can still use the app, just tokens might not be stored
     }
 
-    // Successful authentication - create response with session cookies first
+    // Successful authentication - redirect to destination
     const redirectTo = redirect_to || "/upload";
     const redirectUrl = new URL(redirectTo, requestUrl.origin);
-    const response = NextResponse.redirect(redirectUrl);
 
-    // Ensure session cookies are set properly
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (sessionData.session) {
-      // Force cookie refresh
-      response.cookies.set(
-        "sb-access-token",
-        sessionData.session.access_token,
-        {
-          httpOnly: false,
-          secure: true,
-          sameSite: "lax",
-          maxAge: sessionData.session.expires_in,
-        },
-      );
-      response.cookies.set(
-        "sb-refresh-token",
-        sessionData.session.refresh_token,
-        {
-          httpOnly: false,
-          secure: true,
-          sameSite: "lax",
-          maxAge: 60 * 60 * 24 * 30, // 30 days
-        },
-      );
-    }
+    // Create response and let Supabase handle session cookies automatically
+    const response = NextResponse.redirect(redirectUrl);
 
     return response;
   } catch (authError) {
