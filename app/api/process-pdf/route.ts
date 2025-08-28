@@ -169,6 +169,15 @@ export async function POST(request: NextRequest) {
         "events": [array of events]
       }
 
+            **TIME EXTRACTION IS CRITICAL - HIGHEST PRIORITY:**
+      - Always look for and include time information when available
+      - Convert ALL times to HH:MM AM/PM format (e.g., "2:30 PM", "11:00 AM", "9:00 AM")
+      - Look for time patterns like: "3:00-4:30", "from 2PM to 3PM", "at 11am", "noon", "midnight"
+      - Convert 24-hour format to 12-hour (e.g., "14:30" → "2:30 PM")
+      - Convert words: "noon" → "12:00 PM", "midnight" → "12:00 AM"
+      - If class times are in headers, use them for all class-related events
+      - Include time ranges when available (e.g., "2:00 PM - 3:30 PM")
+
       Class Name Extraction Rules (PRIORITY - Extract from first 3 lines):
       - **FIRST PRIORITY**: Look for course codes in the very first line or header (e.g., "MIS 302", "SDS 321", "MATH 2304", "CS 101")
       - **SECOND PRIORITY**: Check the first 2-3 lines for patterns like "Department ### - Course Name" 
@@ -182,10 +191,12 @@ export async function POST(request: NextRequest) {
         * "ENG 304K" or "ENG-304K" (with letter suffix)
       - Clean extraction rules:
         * Remove extra whitespace and standardize format (e.g., "MIS 302")
+        * Include times if mentioned (e.g., "MWF 3:00-4:30 PM")
         * If found with course title, prioritize just the code (e.g., "MIS 302" from "MIS 302 - Introduction to Information Systems")
         * Convert to uppercase department code (e.g., "mis 302" → "MIS 302")
       - Fallback: If no course code found, use the full course title from the header
       - If absolutely nothing clear is found, use "Unknown Course"
+      
 
       Each event in the events array must include:
       - \`type\`: one of ["Assignment", "Exam", "Midterm", "Final", "Quiz", "Class", "Deadline", "Homework", "Lecture", "Section"]

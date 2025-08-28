@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { createClient } from "../../supabase/client";
 import { Button } from "@/components/ui/button";
+import { CheckCircle, Calendar, ExternalLink } from 'lucide-react';
 
 import {
   Upload,
@@ -11,7 +12,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  ArrowUpRight,
   CalendarIcon,
 } from "lucide-react";
 import { cn } from "../lib/utils";
@@ -70,6 +70,19 @@ export default function UploadClient() {
   const [recurringClassOptions, setRecurringClassOptions] = useState<
     RecurringClassOption[]
   >([]);
+  const googleCalendarColors = [
+  { id: "1", name: "Lavender", color: "bg-blue-100 border-blue-300" },
+  { id: "2", name: "Sage", color: "bg-green-100 border-green-300" },
+  { id: "3", name: "Grape", color: "bg-purple-100 border-purple-300" },
+  { id: "4", name: "Flamingo", color: "bg-red-100 border-red-300" },
+  { id: "5", name: "Banana", color: "bg-yellow-100 border-yellow-300" },
+  { id: "6", name: "Tangerine", color: "bg-orange-100 border-orange-300" },
+  { id: "7", name: "Peacock", color: "bg-cyan-100 border-cyan-300" },
+  { id: "8", name: "Graphite", color: "bg-gray-100 border-gray-300" },
+  { id: "9", name: "Blueberry", color: "bg-blue-200 border-blue-400" },
+  { id: "10", name: "Basil", color: "bg-green-200 border-green-400" },
+  { id: "11", name: "Tomato", color: "bg-red-200 border-red-400" }
+];
   const [showRecurringSelection, setShowRecurringSelection] = useState(false);
   const [isExportingToGoogle, setIsExportingToGoogle] = useState(false);
   const [semesterDateRange, setSemesterDateRange] = useState<[Dayjs, Dayjs]>([
@@ -79,28 +92,108 @@ export default function UploadClient() {
   const [extractedClassName, setExtractedClassName] = useState<string>("");
   const [showDatePickers, setShowDatePickers] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [exportMessage, setExportMessage] = useState<{
+    type: 'success' | 'error' | 'warning' | 'info';
+    text: string;
+    action?: {
+      text: string;
+      url: string;
+    };
+  } | null>(null);
+
+  const [showColorSelection, setShowColorSelection] = useState(false);
+  const [selectedColor, setSelectedColor] = useState("1");
+  
+  // ColorSelectionModal component
+  const ColorSelectionModal = () => {
+    if (!showColorSelection) return null;
+    
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-xl">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            Choose Calendar Color
+          </h3>
+          <p className="text-sm text-gray-600 mb-6">
+            Select a color for your syllabus events in Google Calendar
+          </p>
+          <div className="grid grid-cols-4 gap-3 mb-6">
+            {googleCalendarColors.map((colorOption) => (
+              <button
+                key={colorOption.id}
+                onClick={() => setSelectedColor(colorOption.id)}
+                className={`
+                  w-12 h-12 rounded-lg border-2 transition-all duration-200 hover:scale-105
+                  ${colorOption.color}
+                  ${selectedColor === colorOption.id 
+                    ? 'ring-2 ring-orange-500 ring-offset-2' 
+                    : 'hover:ring-1 hover:ring-gray-300'
+                  }
+                `}
+                title={colorOption.name}
+              />
+            ))}
+          </div>
+          <div className="flex gap-3 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setShowColorSelection(false)}
+              className="border-gray-300 text-gray-700 hover:bg-gray-50"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={proceedWithGoogleExport}
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+            >
+              Export to Google Calendar
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+  
   const removeExtractedDate = (id: string) => {
     setExtractedDates((prev) => prev.filter((event) => event.id !== id));
   };
 
   const resetUpload = () => {
-  setFiles([]);
-  setExtractedDates([]);
-  setExtractedClassName(""); 
-  setShowResults(false);
-  setIsProcessing(false);
-  setRecurringClassOptions([]);
-  setShowRecurringSelection(false);
-  setIsExportingToGoogle(false);
-  setShowDatePickers(false);
-  setSemesterDateRange([
-    dayjs().month(7).date(15), // August 15th
-    dayjs().add(1, "year").month(4).date(15), // May 15th next year
-  ]);
-  if (fileInputRef.current) {
-    fileInputRef.current.value = "";
-  }
-};
+    setFiles([]);
+    setExtractedDates([]);
+    setExtractedClassName(""); 
+    setShowResults(false);
+    setIsProcessing(false);
+    setRecurringClassOptions([]);
+    setShowRecurringSelection(false);
+    setIsExportingToGoogle(false);
+    setShowDatePickers(false);
+    setSemesterDateRange([
+      dayjs().month(7).date(15), // August 15th
+      dayjs().add(1, "year").month(4).date(15), // May 15th next year
+    ]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  useEffect(() => {
+    // Check if user returned from Google auth with export intent
+    const urlParams = new URLSearchParams(window.location.search);
+    const shouldExport = urlParams.get('export');
+    
+    if (shouldExport === 'google' && extractedDates && extractedDates.length > 0) {
+      // Remove the export parameter from URL
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('export');
+      window.history.replaceState({}, '', newUrl.toString());
+      
+      // Automatically trigger export
+      setTimeout(() => {
+        exportToGoogleCalendar();
+      }, 1000); // Small delay to ensure component is fully loaded
+    }
+  }, [extractedDates]);
 
   const acceptedFileTypes = [".pdf", "application/pdf"];
 
@@ -192,143 +285,143 @@ export default function UploadClient() {
   };
 
   const processFiles = async () => {
-  setIsProcessing(true);
+    setIsProcessing(true);
 
-  try {
-    const successfulFiles = files.filter((f) => f.status === "success");
+    try {
+      const successfulFiles = files.filter((f) => f.status === "success");
 
-    if (successfulFiles.length === 0) {
-      throw new Error("No files to process");
-    }
+      if (successfulFiles.length === 0) {
+        throw new Error("No files to process");
+      }
 
-    // Process each PDF file
-    const allExtractedDates: ExtractedDate[] = [];
-    let className = ""; // Store the className from processing
+      // Process each PDF file
+      const allExtractedDates: ExtractedDate[] = [];
+      let className = ""; // Store the className from processing
 
-    for (const uploadedFile of successfulFiles) {
-      if (uploadedFile.file.type === "application/pdf") {
-        const formData = new FormData();
-        formData.append("file", uploadedFile.file);
+      for (const uploadedFile of successfulFiles) {
+        if (uploadedFile.file.type === "application/pdf") {
+          const formData = new FormData();
+          formData.append("file", uploadedFile.file);
 
-        // Add semester dates if available and checkbox is checked
-        if (showDatePickers && semesterDateRange) {
-          formData.append(
-            "semesterStart",
-            semesterDateRange[0].toISOString(),
-          );
-          formData.append("semesterEnd", semesterDateRange[1].toISOString());
-        }
-
-        const response = await fetch("/api/process-pdf", {
-          method: "POST",
-          body: formData,
-        });
-
-        const contentType = response.headers.get("content-type") || "";
-        if (!response.ok || !contentType.includes("application/json")) {
-          const text = await response.text();
-          console.error("Unexpected response:", text);
-          throw new Error(
-            `Unexpected response (${response.status}): ${text.slice(0, 200)}`,
-          );
-        }
-
-        const result = await response.json();
-
-        if (result.success && result.extractedDates) {
-          // Store the className from the first processed file
-          if (!className && result.className) {
-            className = result.className;
-          }
-
-          // Filter out dates without specific dates or recurring patterns
-          const validDates = result.extractedDates.filter(
-            (dateItem: ExtractedDate) => {
-              // Include if it has a specific date
-              if (
-                dateItem.date &&
-                dateItem.date !== "" &&
-                !dateItem.date.includes("throughout")
-              ) {
-                return true;
-              }
-              // Include if it has recurring pattern like "every Friday"
-              if (
-                dateItem.recurrence &&
-                (dateItem.recurrence.includes("every") ||
-                  dateItem.recurrence.includes("weekly"))
-              ) {
-                return true;
-              }
-              return false;
-            },
-          );
-
-          // Check for multiple recurring class times with different sections
-          const recurringClasses = validDates.filter(
-            (dateItem: ExtractedDate) =>
-              dateItem.type === "class" &&
-              dateItem.recurrence &&
-              dateItem.sectionNumber,
-          );
-
-          if (recurringClasses.length > 1) {
-            const options = recurringClasses.map(
-              (classItem: ExtractedDate) => ({
-                id: classItem.id,
-                title: classItem.title,
-                sectionNumber: classItem.sectionNumber || "Unknown",
-                time: classItem.time || "Unknown",
-                selected: false,
-              }),
+          // Add semester dates if available and checkbox is checked
+          if (showDatePickers && semesterDateRange) {
+            formData.append(
+              "semesterStart",
+              semesterDateRange[0].toISOString(),
             );
-            setRecurringClassOptions(options);
-            setShowRecurringSelection(true);
+            formData.append("semesterEnd", semesterDateRange[1].toISOString());
           }
 
-          allExtractedDates.push(...validDates);
+          const response = await fetch("/api/process-pdf", {
+            method: "POST",
+            body: formData,
+          });
+
+          const contentType = response.headers.get("content-type") || "";
+          if (!response.ok || !contentType.includes("application/json")) {
+            const text = await response.text();
+            console.error("Unexpected response:", text);
+            throw new Error(
+              `Unexpected response (${response.status}): ${text.slice(0, 200)}`,
+            );
+          }
+
+          const result = await response.json();
+
+          if (result.success && result.extractedDates) {
+            // Store the className from the first processed file
+            if (!className && result.className) {
+              className = result.className;
+            }
+
+            // Filter out dates without specific dates or recurring patterns
+            const validDates = result.extractedDates.filter(
+              (dateItem: ExtractedDate) => {
+                // Include if it has a specific date
+                if (
+                  dateItem.date &&
+                  dateItem.date !== "" &&
+                  !dateItem.date.includes("throughout")
+                ) {
+                  return true;
+                }
+                // Include if it has recurring pattern like "every Friday"
+                if (
+                  dateItem.recurrence &&
+                  (dateItem.recurrence.includes("every") ||
+                    dateItem.recurrence.includes("weekly"))
+                ) {
+                  return true;
+                }
+                return false;
+              },
+            );
+
+            // Check for multiple recurring class times with different sections
+            const recurringClasses = validDates.filter(
+              (dateItem: ExtractedDate) =>
+                dateItem.type === "class" &&
+                dateItem.recurrence &&
+                dateItem.sectionNumber,
+            );
+
+            if (recurringClasses.length > 1) {
+              const options = recurringClasses.map(
+                (classItem: ExtractedDate) => ({
+                  id: classItem.id,
+                  title: classItem.title,
+                  sectionNumber: classItem.sectionNumber || "Unknown",
+                  time: classItem.time || "Unknown",
+                  selected: false,
+                }),
+              );
+              setRecurringClassOptions(options);
+              setShowRecurringSelection(true);
+            }
+
+            allExtractedDates.push(...validDates);
+          }
         }
       }
+
+      // Store the className for later use
+      setExtractedClassName(className);
+
+      // Update syllabi count in database
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user && successfulFiles.length > 0) {
+        const { data: currentProfile } = await supabase
+          .from("users")
+          .select("syllabi_processed")
+          .eq("user_id", user.id)
+          .single();
+
+        const currentCount = currentProfile?.syllabi_processed || 0;
+        const newCount = currentCount + successfulFiles.length;
+
+        await supabase
+          .from("users")
+          .update({ syllabi_processed: newCount })
+          .eq("user_id", user.id);
+      }
+
+      setExtractedDates(allExtractedDates);
+      setIsProcessing(false);
+      setShowResults(true);
+    } catch (error) {
+      console.error("Error processing files:", error);
+      setIsProcessing(false);
+
+      // Show error to user (you might want to add a toast notification here)
+      alert(
+        `Error processing files: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
     }
-
-    // Store the className for later use
-    setExtractedClassName(className);
-
-    // Update syllabi count in database
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (user && successfulFiles.length > 0) {
-      const { data: currentProfile } = await supabase
-        .from("users")
-        .select("syllabi_processed")
-        .eq("user_id", user.id)
-        .single();
-
-      const currentCount = currentProfile?.syllabi_processed || 0;
-      const newCount = currentCount + successfulFiles.length;
-
-      await supabase
-        .from("users")
-        .update({ syllabi_processed: newCount })
-        .eq("user_id", user.id);
-    }
-
-    setExtractedDates(allExtractedDates);
-    setIsProcessing(false);
-    setShowResults(true);
-  } catch (error) {
-    console.error("Error processing files:", error);
-    setIsProcessing(false);
-
-    // Show error to user (you might want to add a toast notification here)
-    alert(
-      `Error processing files: ${error instanceof Error ? error.message : "Unknown error"}`,
-    );
-  }
-};
+  };
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return "0 Bytes";
@@ -347,11 +440,6 @@ export default function UploadClient() {
         )}
       />
     );
-  };
-
-  const getDateTypeIcon = (type: string) => {
-    // Return empty string to remove emojis
-    return "";
   };
 
   const getDateTypeColor = (type: string) => {
@@ -417,31 +505,107 @@ export default function UploadClient() {
     setShowRecurringSelection(false);
   };
 
-  const exportToGoogleCalendar = async () => {
-    setIsExportingToGoogle(true);
-    try {
-      // Get the current user's session to access Google tokens
-      const supabase = createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+  const ExportMessageComponent = () => {
+    if (!exportMessage) return null;
 
-      if (!session?.provider_token) {
-        // Redirect to Google sign-in if not authenticated
+    return (
+      <div className={`p-4 rounded-lg border mb-4 ${
+        exportMessage.type === 'success' ? 'bg-green-50 border-green-200 text-green-700' :
+        exportMessage.type === 'error' ? 'bg-red-50 border-red-200 text-red-700' :
+        exportMessage.type === 'warning' ? 'bg-yellow-50 border-yellow-200 text-yellow-700' :
+        'bg-blue-50 border-blue-200 text-blue-700'
+      }`}>
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0 mt-0.5">
+            {exportMessage.type === 'success' && <CheckCircle className="w-5 h-5 text-green-500" />}
+            {exportMessage.type === 'error' && <AlertCircle className="w-5 h-5 text-red-500" />}
+            {exportMessage.type === 'warning' && <AlertCircle className="w-5 h-5 text-yellow-500" />}
+            {exportMessage.type === 'info' && <Calendar className="w-5 h-5 text-blue-500" />}
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-medium">{exportMessage.text}</p>
+            {exportMessage.action && (
+              <a
+                href={exportMessage.action.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 mt-2 text-sm underline hover:no-underline"
+              >
+                {exportMessage.action.text}
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+  
+  const exportToGoogleCalendar = async () => {
+    // Show color selection modal first
+    setShowColorSelection(true);
+  };
+
+  const proceedWithGoogleExport = async () => {
+    setShowColorSelection(false);
+    setIsExportingToGoogle(true);
+    
+    try {
+      const supabase = createClient();
+      
+      // First check if user is authenticated
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        // User not logged in at all
+        setExportMessage({
+          type: 'error',
+          text: 'Please sign in to export to Google Calendar.'
+        });
+        setIsExportingToGoogle(false);
+        return;
+      }
+
+      // Check if user has Google Calendar access by looking in the database
+      const { data: userData } = await supabase
+        .from('users')
+        .select('google_access_token, google_refresh_token')
+        .eq('user_id', session.user.id)
+        .single();
+
+      if (!userData?.google_access_token && !userData?.google_refresh_token) {
+        // User needs to connect Google Calendar
+        setExportMessage({
+          type: 'info',
+          text: 'Connecting to Google Calendar...'
+        });
+
         const { error } = await supabase.auth.signInWithOAuth({
           provider: "google",
           options: {
-            scopes: "https://www.googleapis.com/auth/calendar",
-            redirectTo: `${window.location.origin}/upload?export=google`,
+            scopes: "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile",
+            queryParams: {
+              access_type: 'offline',
+              prompt: 'consent',
+            },
+            redirectTo: `${window.location.origin}/auth/callback?redirect_to=${encodeURIComponent(window.location.pathname + '?export=google')}`,
           },
         });
 
         if (error) {
           console.error("Error signing in with Google:", error);
-          alert("Failed to sign in with Google. Please try again.");
+          setExportMessage({
+            type: 'error',
+            text: 'Failed to connect to Google Calendar. Please try again.'
+          });
         }
+        setIsExportingToGoogle(false);
         return;
       }
+      
+
+      // User has tokens, try to export using the freshest token available
+      let accessToken = session.provider_token || userData.google_access_token;
 
       const response = await fetch("/api/export-google-calendar", {
         method: "POST",
@@ -450,86 +614,130 @@ export default function UploadClient() {
         },
         body: JSON.stringify({
           dates: extractedDates,
-          accessToken: session.provider_token,
+          accessToken: accessToken,
+          colorId: selectedColor, // Include the selected color
         }),
       });
 
       const result = await response.json();
+
+      if (result.authError) {
+        // Token expired, need to re-authenticate
+        setExportMessage({
+          type: 'info',
+          text: 'Google Calendar access expired. Reconnecting...'
+        });
+
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            scopes: "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile",
+            queryParams: {
+              access_type: 'offline',
+              prompt: 'consent',
+            },
+            redirectTo: `${window.location.origin}/auth/callback?redirect_to=${encodeURIComponent(window.location.pathname + '?export=google')}`,
+          },
+        });
+
+        if (error) {
+          console.error("Error re-authenticating with Google:", error);
+          setExportMessage({
+            type: 'error',
+            text: 'Failed to reconnect to Google Calendar. Please try again.'
+          });
+        }
+        setIsExportingToGoogle(false);
+        return;
+      }
 
       if (result.success) {
         const successCount = result.createdEvents?.length || 0;
         const errorCount = result.errors?.length || 0;
 
         if (errorCount > 0) {
-          alert(
-            `🎉 Successfully created ${successCount} events in Google Calendar! ${errorCount} events failed to create. Check your Google Calendar to view the events.`,
-          );
+          setExportMessage({
+            type: 'warning',
+            text: `Successfully created ${successCount} events in Google Calendar! ${errorCount} events failed to create.`,
+            action: {
+              text: 'View Calendar',
+              url: 'https://calendar.google.com'
+            }
+          });
         } else {
-          alert(
-            `🎉 Successfully created ${successCount} events in Google Calendar! Check your Google Calendar to view all your syllabus events.`,
-          );
+          setExportMessage({
+            type: 'success',
+            text: `Successfully created ${successCount} events in Google Calendar!`,
+            action: {
+              text: 'View Calendar',
+              url: 'https://calendar.google.com'
+            }
+          });
         }
       } else {
-        alert(
-          "Failed to create Google Calendar events: " +
-            (result.error || "Unknown error"),
-        );
+        setExportMessage({
+          type: 'error',
+          text: result.error || 'Failed to create Google Calendar events.'
+        });
       }
     } catch (error) {
       console.error("Error exporting to Google Calendar:", error);
-      alert("Error exporting to Google Calendar. Please try again.");
+      setExportMessage({
+        type: 'error',
+        text: 'Error exporting to Google Calendar. Please try again.'
+      });
     } finally {
       setIsExportingToGoogle(false);
+      // Clear message after 8 seconds
+      setTimeout(() => setExportMessage(null), 8000);
     }
   };
-
+  
   const downloadICSFile = async () => {
-  try {
-    console.log("Downloading ICS with className:", extractedClassName); // Debug log
-    
-    const response = await fetch("/api/generate-ics", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ 
-        dates: extractedDates,
-        className: extractedClassName // ← Add this line!
-      }),
-    });
+    try {
+      console.log("Downloading ICS with className:", extractedClassName); // Debug log
+      
+      const response = await fetch("/api/generate-ics", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ 
+          dates: extractedDates,
+          className: extractedClassName 
+        }),
+      });
 
-    if (response.ok) {
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      
-      // The filename will now be set by the server based on className
-      const contentDisposition = response.headers.get('content-disposition');
-      const filenameMatch = contentDisposition?.match(/filename="([^"]+)"/);
-      const filename = filenameMatch ? filenameMatch[1] : "syllabus-calendar.ics";
-      
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } else {
-      alert("Failed to generate ICS file");
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        
+        // The filename will now be set by the server based on className
+        const contentDisposition = response.headers.get('content-disposition');
+        const filenameMatch = contentDisposition?.match(/filename="([^"]+)"/);
+        const filename = filenameMatch ? filenameMatch[1] : "syllabus-calendar.ics";
+        
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        alert("Failed to generate ICS file");
+      }
+    } catch (error) {
+      console.error("Error downloading ICS file:", error);
+      alert("Error downloading ICS file");
     }
-  } catch (error) {
-    console.error("Error downloading ICS file:", error);
-    alert("Error downloading ICS file");
-  }
-};
-
-  const exportToAppleCalendar = () => {
-    // Apple Calendar uses the same ICS format, so we can reuse the download function
-    downloadICSFile();
   };
 
   return (
     <>
+      {/* Color Selection Modal */}
+      <ColorSelectionModal />
+      
       {/* Hero Section */}
       <div className="relative pt-16 pb-12">
         <div className="max-w-4xl mx-auto px-6 text-center">
@@ -684,7 +892,6 @@ export default function UploadClient() {
                 <>
                   Process {successfulFiles.length} file
                   {successfulFiles.length !== 1 ? "s" : ""}
-                  <ArrowUpRight className="w-6 h-6 ml-3" />
                 </>
               )}
             </Button>
@@ -927,7 +1134,7 @@ export default function UploadClient() {
                           </div>
                         </div>
 
-                        {/* ❌ Remove Button */}
+                        {/* Remove Button */}
                         <Button
                           variant="ghost"
                           size="sm"
@@ -939,21 +1146,42 @@ export default function UploadClient() {
                       </div>
                     ))}
                   </div>
-                  <div className="mt-6 flex gap-3">
-                    <Button
-                      onClick={downloadICSFile}
-                      className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl"
-                    >
-                      Download .ics File
-                    </Button>
-                    <Button
-                      onClick={resetUpload}
-                      variant="outline"
-                      className="border-orange-500 text-orange-600 hover:bg-orange-50 rounded-xl"
-                    >
-                      Upload New Syllabus
-                    </Button>
-                  </div>
+                  
+                  {/* Export Message Component - Place it here before export buttons */}
+                  <ExportMessageComponent />
+                  
+                    <div className="mt-6 flex gap-3">
+                      <Button
+                        onClick={exportToGoogleCalendar}
+                        disabled={isExportingToGoogle}
+                        className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl flex items-center gap-2"
+                      >
+                        {isExportingToGoogle ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            Exporting...
+                          </>
+                        ) : (
+                          <>
+                            <Calendar className="w-4 h-4" />
+                            Export to Google Calendar
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        onClick={downloadICSFile}
+                        className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl"
+                      >
+                        Download .ics File
+                      </Button>
+                      <Button
+                        onClick={resetUpload}
+                        variant="outline"
+                        className="border-orange-500 text-orange-600 hover:bg-orange-50 rounded-xl"
+                      >
+                        Upload New Syllabus
+                      </Button>
+                    </div>
                 </CardContent>
               </Card>
             </div>
