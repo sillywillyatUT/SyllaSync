@@ -618,10 +618,8 @@ export default function UploadClient() {
       text: 'Creating calendar events...'
     });
 
-    // Use Netlify function endpoint or Vercel API endpoint
-    const apiEndpoint = process.env.NODE_ENV === 'development' 
-      ? '/api/export-google-calendar'  // Vercel dev
-      : '/.netlify/functions/export-google-calendar';  // Netlify
+    const apiEndpoint = '/.netlify/functions/export-google-calendar';
+
 
     const response = await fetch(apiEndpoint, {
       method: "POST",
