@@ -274,22 +274,27 @@ npm test
 -  Fixed naming issue in ics file generation and event naming
 
 ### Changelog
-
-#### v1.0.0 
+(P.S. I forgot to include the readme until later....)
+#### v1.0.0 || 8-20-2025
 - Initial release with core functionality
 - AI-powered date extraction
 - Multi-format calendar export
 - User authentication system
 - Responsive web interface
 
-#### v1.0.1 
+#### v1.0.1 || 8-25-2025
 - Switched PDF parsing to use PDF.js-serverless to work on serverless domains such as Netlify/Vercel
 - Fixed sign-up issues
 
-#### v1.0.2 (Latest)
+#### v1.0.2 || 8-27-2025
 - Fixed QOL issues (fixed naming ics file to include class ID into name and events)
 - Updated AI prompt to grab the class ID from the top of the syllabus
 - UI Fixes so the user knows what class has an assignment
+
+#### v1.1.0 (Latest) || 8-28-2025
+- Fixed sign-in with Google errors not auto authenticating
+- Added export to Google Calendar functionality
+- Added color picker for Google Calendar events
 
 ##  Known Issues
 
