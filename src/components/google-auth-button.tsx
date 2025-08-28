@@ -68,14 +68,8 @@ export default function GoogleAuthButton() {
       console.log(`[GOOGLE_AUTH] Starting Google sign-in process`);
       setIsLoading(true);
 
-      // Check current session before signing out
-      const { data: currentSession } = await supabase.auth.getSession();
-      if (currentSession.session) {
-        console.log(`[GOOGLE_AUTH] Current session exists, signing out first:`, currentSession.session.user.email);
-        await supabase.auth.signOut();
-      } else {
-        console.log(`[GOOGLE_AUTH] No current session found`);
-      }
+      // Don't sign out first - this can interfere with PKCE flow
+      console.log(`[GOOGLE_AUTH] Initiating OAuth flow`);
 
       const redirectUrl = `${window.location.origin}/auth/callback?redirect_to=${encodeURIComponent("/upload")}`;
       console.log(`[GOOGLE_AUTH] Redirect URL:`, redirectUrl);
