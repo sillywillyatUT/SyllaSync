@@ -6,6 +6,11 @@ export async function middleware(request: NextRequest) {
   // Handle authentication session update
   const response = await updateSession(request);
 
+  // Skip auth check for auth callback to prevent redirect loops
+  if (request.nextUrl.pathname.startsWith("/auth/callback")) {
+    return response;
+  }
+
   // Add protection for upload page - only allow authenticated users
   if (request.nextUrl.pathname === "/upload") {
     try {
@@ -27,11 +32,14 @@ export async function middleware(request: NextRequest) {
               });
             },
           },
-        }
+        },
       );
 
-      const { data: { user }, error } = await supabase.auth.getUser();
-      
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
+
       if (error || !user) {
         return NextResponse.redirect(new URL("/sign-in", request.url));
       }
