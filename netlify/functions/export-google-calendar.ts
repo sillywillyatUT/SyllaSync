@@ -172,7 +172,7 @@ function adjustOverlappingTimes(dates: ExtractedDate[]): ExtractedDate[] {
   return dates;
 }
 
-// UPDATED: Format datetime without timezone conversion
+// UPDATED: Format datetime without timezone - let Google Calendar use user's default
 function formatDateTimeForGoogle(dateString: string, timeString?: string): string {
   // Create date in YYYY-MM-DD format
   const datePart = new Date(dateString).toISOString().split('T')[0];
@@ -229,7 +229,7 @@ function formatDateTimeForGoogle(dateString: string, timeString?: string): strin
       
       const { hours, minutes } = parseTime(startTimeStr, startPeriod);
       
-      // Format as YYYY-MM-DDTHH:MM:SS (no timezone)
+      // Format as YYYY-MM-DDTHH:MM:SS (local time, no timezone specified)
       const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
       return `${datePart}T${formattedTime}`;
     } else {
@@ -244,7 +244,7 @@ function formatDateTimeForGoogle(dateString: string, timeString?: string): strin
   }
 }
 
-// UPDATED: Format end time without timezone conversion
+// UPDATED: Format end time without timezone
 function formatEndTimeForGoogle(dateString: string, timeString?: string): string {
   const datePart = new Date(dateString).toISOString().split('T')[0];
 
@@ -521,9 +521,11 @@ async function handleRequest(body: string) {
           if (hasTime) {
             eventData.start = {
               dateTime: formatDateTimeForGoogle(baseDateString, dateItem.time),
+              // Don't specify timeZone - let Google Calendar use user's default
             };
             eventData.end = {
               dateTime: formatEndTimeForGoogle(baseDateString, dateItem.time),
+              // Don't specify timeZone - let Google Calendar use user's default
             };
           } else {
             eventData.start = {
@@ -537,9 +539,11 @@ async function handleRequest(body: string) {
           if (hasTime) {
             eventData.start = {
               dateTime: formatDateTimeForGoogle(dateItem.date, dateItem.time),
+              // Don't specify timeZone - let Google Calendar use user's default
             };
             eventData.end = {
               dateTime: formatEndTimeForGoogle(dateItem.date, dateItem.time),
+              // Don't specify timeZone - let Google Calendar use user's default
             };
           } else {
             eventData.start = {
