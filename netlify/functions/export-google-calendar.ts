@@ -67,9 +67,29 @@ function parseTime(timeStr: string, fallbackPeriod?: string): { hours: number; m
     period = 'PM';
     time = cleanTime.replace(/\s*pm\s*/, '');
   } else {
-    // No explicit AM/PM found, use fallback
+    // No explicit AM/PM found, use fallback or infer from time
     time = cleanTime;
     period = fallbackPeriod || '';
+    
+    // Academic time inference logic
+    if (!period) {
+      const hourNum = parseInt(time.split(':')[0]);
+      
+      // Academic scheduling heuristics:
+      // Times 1-7 without AM/PM in academic context are likely PM
+      // Times 8-11 without AM/PM could be AM or PM, but in college often PM
+      // Times 12 are likely PM (noon)
+      if (hourNum >= 1 && hourNum <= 7) {
+        period = 'PM';
+      } else if (hourNum === 12) {
+        period = 'PM'; // Assume noon, not midnight
+      } else if (hourNum >= 8 && hourNum <= 11) {
+        // For 8-11, prefer PM for afternoon/evening classes
+        period = 'PM';
+      } else {
+        period = 'AM'; // Default for very early times
+      }
+    }
   }
   
   // Parse hours and minutes
@@ -152,8 +172,10 @@ function adjustOverlappingTimes(dates: ExtractedDate[]): ExtractedDate[] {
   return dates;
 }
 
+// UPDATED: Format datetime without timezone conversion
 function formatDateTimeForGoogle(dateString: string, timeString?: string): string {
-  const date = new Date(dateString);
+  // Create date in YYYY-MM-DD format
+  const datePart = new Date(dateString).toISOString().split('T')[0];
 
   if (timeString) {
     const timeRangeRegex = /([^–\-]+)[–\-]([^–\-]+)/;
@@ -192,22 +214,25 @@ function formatDateTimeForGoogle(dateString: string, timeString?: string): strin
       }
       
       const { hours, minutes } = parseTime(startTimeStr, startPeriod);
-      date.setHours(hours, minutes, 0, 0);
+      
+      // Format as YYYY-MM-DDTHH:MM:SS (no timezone)
+      const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
+      return `${datePart}T${formattedTime}`;
     } else {
       // Single time
       const { hours, minutes } = parseTime(timeString);
-      date.setHours(hours, minutes, 0, 0);
+      const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
+      return `${datePart}T${formattedTime}`;
     }
-    
-    return date.toISOString();
   } else {
-    date.setHours(0, 0, 0, 0);
-    return date.toISOString().split('T')[0];
+    // All-day event - return just the date
+    return datePart;
   }
 }
 
+// UPDATED: Format end time without timezone conversion
 function formatEndTimeForGoogle(dateString: string, timeString?: string): string {
-  const date = new Date(dateString);
+  const datePart = new Date(dateString).toISOString().split('T')[0];
 
   if (timeString) {
     const timeRangeRegex = /([^–\-]+)[–\-]([^–\-]+)/;
@@ -234,18 +259,19 @@ function formatEndTimeForGoogle(dateString: string, timeString?: string): string
       }
       
       const { hours, minutes } = parseTime(endTimeStr, endPeriod);
-      date.setHours(hours, minutes, 0, 0);
+      const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
+      return `${datePart}T${formattedTime}`;
     } else {
       // Single time - add 1 hour as default duration
       const { hours, minutes } = parseTime(timeString);
-      date.setHours(hours + 1, minutes, 0, 0);
+      const endHours = (hours + 1) % 24;
+      const formattedTime = `${endHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
+      return `${datePart}T${formattedTime}`;
     }
-    
-    return date.toISOString();
   } else {
-    const nextDay = new Date(date);
+    // All-day event - end date is next day
+    const nextDay = new Date(dateString);
     nextDay.setDate(nextDay.getDate() + 1);
-    nextDay.setHours(0, 0, 0, 0);
     return nextDay.toISOString().split('T')[0];
   }
 }
@@ -372,13 +398,13 @@ function checkForExistingConflicts(newDates: ExtractedDate[], existingEvents: an
 // Main handler function
 async function handleRequest(body: string) {
   try {
-    const { dates, accessToken, refreshToken, colorId, timezone }: { 
+    const { dates, accessToken, refreshToken, colorId }: { 
       dates: ExtractedDate[]; 
       accessToken: string; 
       refreshToken?: string;
       colorId?: string;
-      timezone?: string;
     } = JSON.parse(body);
+    
     if (!dates || dates.length === 0) {
       return {
         statusCode: 400,
@@ -427,7 +453,6 @@ async function handleRequest(body: string) {
 
     const createdEvents: any[] = [];
     const errors: any[] = [];
-    // Remove timezone handling completely
 
     for (const dateItem of adjustedDates) {
       try {
@@ -463,21 +488,21 @@ async function handleRequest(body: string) {
           // For recurring events, start from next week
           const baseDate = new Date();
           baseDate.setDate(baseDate.getDate() + 7);
-          baseDate.setHours(0, 0, 0, 0);
+          const baseDateString = baseDate.toISOString().split('T')[0];
 
           if (hasTime) {
             eventData.start = {
-              dateTime: formatDateTimeForGoogle(baseDate.toISOString(), dateItem.time),
+              dateTime: formatDateTimeForGoogle(baseDateString, dateItem.time),
             };
             eventData.end = {
-              dateTime: formatEndTimeForGoogle(baseDate.toISOString(), dateItem.time),
+              dateTime: formatEndTimeForGoogle(baseDateString, dateItem.time),
             };
           } else {
             eventData.start = {
-              date: formatDateTimeForGoogle(baseDate.toISOString()),
+              date: formatDateTimeForGoogle(baseDateString),
             };
             eventData.end = {
-              date: formatEndTimeForGoogle(baseDate.toISOString()),
+              date: formatEndTimeForGoogle(baseDateString),
             };
           }
         } else if (dateItem.date) {
@@ -497,6 +522,7 @@ async function handleRequest(body: string) {
             };
           }
         }
+
         const response = await calendar.events.insert({
           calendarId: 'primary',
           requestBody: eventData,
