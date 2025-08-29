@@ -379,16 +379,6 @@ async function handleRequest(body: string) {
       colorId?: string;
       timezone?: string;
     } = JSON.parse(body);
-
-    // LOG: Input dates
-    console.log('=== GOOGLE CALENDAR EXPORT - INPUT DATES ===');
-    console.log('Total dates received:', dates?.length || 0);
-    console.log('Dates:', JSON.stringify(dates, null, 2));
-    console.log('============================================');
-    
-    // Also log to stderr which might be more visible
-    console.error('🚀 NETLIFY FUNCTION: Processing', dates?.length || 0, 'dates');
-
     if (!dates || dates.length === 0) {
       return {
         statusCode: 400,
@@ -507,12 +497,6 @@ async function handleRequest(body: string) {
             };
           }
         }
-
-        // LOG: Event data being sent to Google Calendar
-        console.log(`--- Creating event: "${dateItem.title}" ---`);
-        console.log('Event data:', JSON.stringify(eventData, null, 2));
-        console.error(`📅 Creating: ${dateItem.title} on ${dateItem.date} at ${dateItem.time || 'all-day'}`);
-
         const response = await calendar.events.insert({
           calendarId: 'primary',
           requestBody: eventData,
@@ -527,7 +511,6 @@ async function handleRequest(body: string) {
           start: response.data.start,
           end: response.data.end
         });
-        console.error(`✅ Created: ${response.data.summary} (ID: ${response.data.id})`);
 
         createdEvents.push({
           title: dateItem.title,
@@ -538,7 +521,6 @@ async function handleRequest(body: string) {
         });
 
       } catch (eventError) {
-        console.error(`Error creating event "${dateItem.title}":`, eventError);
         errors.push({
           event: dateItem.title,
           error: eventError instanceof Error ? eventError.message : "Unknown error",
@@ -559,16 +541,6 @@ async function handleRequest(body: string) {
         failed: errors.length,
       },
     };
-
-    // LOG: Final export result
-    console.log('=== GOOGLE CALENDAR EXPORT - FINAL RESULT ===');
-    console.log('Export summary:', JSON.stringify(finalResult.summary, null, 2));
-    console.log('Created events:', JSON.stringify(finalResult.createdEvents, null, 2));
-    console.log('Errors:', JSON.stringify(finalResult.errors, null, 2));
-    console.log('Adjustments made:', finalResult.adjustmentsMade);
-    console.log('============================================');
-    
-    console.error(`🎉 EXPORT COMPLETE: ${finalResult.summary.successful}/${finalResult.summary.totalEvents} events created`);
 
     return {
       statusCode: 200,
@@ -600,7 +572,6 @@ async function handleRequest(body: string) {
 
 // Netlify function handler
 export const handler: Handler = async (event, context) => {
-  console.error('🔥 NETLIFY FUNCTION CALLED:', event.httpMethod, event.path);
   
   if (event.httpMethod !== 'POST') {
     return {
