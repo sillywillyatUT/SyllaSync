@@ -152,7 +152,7 @@ function adjustOverlappingTimes(dates: ExtractedDate[]): ExtractedDate[] {
   return dates;
 }
 
-function formatDateTimeForGoogle(dateString: string, timeString?: string, userTimezone?: string): string {
+function formatDateTimeForGoogle(dateString: string, timeString?: string): string {
   const date = new Date(dateString);
 
   if (timeString) {
@@ -206,7 +206,7 @@ function formatDateTimeForGoogle(dateString: string, timeString?: string, userTi
   }
 }
 
-function formatEndTimeForGoogle(dateString: string, timeString?: string, userTimezone?: string): string {
+function formatEndTimeForGoogle(dateString: string, timeString?: string): string {
   const date = new Date(dateString);
 
   if (timeString) {
@@ -380,6 +380,15 @@ async function handleRequest(body: string) {
       timezone?: string;
     } = JSON.parse(body);
 
+    // LOG: Input dates
+    console.log('=== GOOGLE CALENDAR EXPORT - INPUT DATES ===');
+    console.log('Total dates received:', dates?.length || 0);
+    console.log('Dates:', JSON.stringify(dates, null, 2));
+    console.log('============================================');
+    
+    // Also log to stderr which might be more visible
+    console.error('🚀 NETLIFY FUNCTION: Processing', dates?.length || 0, 'dates');
+
     if (!dates || dates.length === 0) {
       return {
         statusCode: 400,
@@ -428,7 +437,7 @@ async function handleRequest(body: string) {
 
     const createdEvents: any[] = [];
     const errors: any[] = [];
-    const userTimezone = timezone || 'America/Chicago'; // Default to Central Time
+    // Remove timezone handling completely
 
     for (const dateItem of adjustedDates) {
       try {
@@ -468,12 +477,10 @@ async function handleRequest(body: string) {
 
           if (hasTime) {
             eventData.start = {
-              dateTime: formatDateTimeForGoogle(baseDate.toISOString(), dateItem.time, userTimezone),
-              timeZone: userTimezone,
+              dateTime: formatDateTimeForGoogle(baseDate.toISOString(), dateItem.time),
             };
             eventData.end = {
-              dateTime: formatEndTimeForGoogle(baseDate.toISOString(), dateItem.time, userTimezone),
-              timeZone: userTimezone,
+              dateTime: formatEndTimeForGoogle(baseDate.toISOString(), dateItem.time),
             };
           } else {
             eventData.start = {
@@ -486,12 +493,10 @@ async function handleRequest(body: string) {
         } else if (dateItem.date) {
           if (hasTime) {
             eventData.start = {
-              dateTime: formatDateTimeForGoogle(dateItem.date, dateItem.time, userTimezone),
-              timeZone: userTimezone,
+              dateTime: formatDateTimeForGoogle(dateItem.date, dateItem.time),
             };
             eventData.end = {
-              dateTime: formatEndTimeForGoogle(dateItem.date, dateItem.time, userTimezone),
-              timeZone: userTimezone,
+              dateTime: formatEndTimeForGoogle(dateItem.date, dateItem.time),
             };
           } else {
             eventData.start = {
@@ -503,10 +508,26 @@ async function handleRequest(body: string) {
           }
         }
 
+        // LOG: Event data being sent to Google Calendar
+        console.log(`--- Creating event: "${dateItem.title}" ---`);
+        console.log('Event data:', JSON.stringify(eventData, null, 2));
+        console.error(`📅 Creating: ${dateItem.title} on ${dateItem.date} at ${dateItem.time || 'all-day'}`);
+
         const response = await calendar.events.insert({
           calendarId: 'primary',
           requestBody: eventData,
         });
+
+        // LOG: Google Calendar response
+        console.log('Google Calendar response:', {
+          id: response.data.id,
+          htmlLink: response.data.htmlLink,
+          status: response.status,
+          summary: response.data.summary,
+          start: response.data.start,
+          end: response.data.end
+        });
+        console.error(`✅ Created: ${response.data.summary} (ID: ${response.data.id})`);
 
         createdEvents.push({
           title: dateItem.title,
@@ -525,21 +546,33 @@ async function handleRequest(body: string) {
       }
     }
 
+    const finalResult = {
+      success: true,
+      createdEvents,
+      errors,
+      newAccessToken: tokenResult.token !== accessToken ? tokenResult.token : undefined,
+      newRefreshToken: tokenResult.newRefreshToken,
+      adjustmentsMade: adjustedDates.some(d => d.time !== dates.find(orig => orig.id === d.id)?.time),
+      summary: {
+        totalEvents: dates.length,
+        successful: createdEvents.length,
+        failed: errors.length,
+      },
+    };
+
+    // LOG: Final export result
+    console.log('=== GOOGLE CALENDAR EXPORT - FINAL RESULT ===');
+    console.log('Export summary:', JSON.stringify(finalResult.summary, null, 2));
+    console.log('Created events:', JSON.stringify(finalResult.createdEvents, null, 2));
+    console.log('Errors:', JSON.stringify(finalResult.errors, null, 2));
+    console.log('Adjustments made:', finalResult.adjustmentsMade);
+    console.log('============================================');
+    
+    console.error(`🎉 EXPORT COMPLETE: ${finalResult.summary.successful}/${finalResult.summary.totalEvents} events created`);
+
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        success: true,
-        createdEvents,
-        errors,
-        newAccessToken: tokenResult.token !== accessToken ? tokenResult.token : undefined,
-        newRefreshToken: tokenResult.newRefreshToken,
-        adjustmentsMade: adjustedDates.some(d => d.time !== dates.find(orig => orig.id === d.id)?.time),
-        summary: {
-          totalEvents: dates.length,
-          successful: createdEvents.length,
-          failed: errors.length,
-        },
-      })
+      body: JSON.stringify(finalResult)
     };
 
   } catch (error) {
@@ -567,6 +600,8 @@ async function handleRequest(body: string) {
 
 // Netlify function handler
 export const handler: Handler = async (event, context) => {
+  console.error('🔥 NETLIFY FUNCTION CALLED:', event.httpMethod, event.path);
+  
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
