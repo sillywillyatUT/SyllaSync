@@ -210,6 +210,20 @@ function formatDateTimeForGoogle(dateString: string, timeString?: string): strin
           }
         } else if (endTimeStr.toLowerCase().includes('am') && !fullTimeString.includes('pm')) {
           startPeriod = 'AM';
+        } else {
+          // Fallback: No explicit AM/PM found anywhere, use academic heuristics
+          const startHour = parseInt(startTimeStr.split(':')[0]);
+          const endHour = parseInt(endTimeStr.split(':')[0]);
+          
+          // For academic time ranges without AM/PM, assume PM for afternoon times
+          if (startHour >= 1 && startHour <= 7 && endHour >= 1 && endHour <= 7) {
+            startPeriod = 'PM'; // Both likely PM (like 3:30-5:00)
+          } else if (startHour > endHour) {
+            // Crossing periods (like 11:00-2:00 likely means 11 AM - 2 PM)
+            startPeriod = 'AM';
+          } else {
+            startPeriod = 'PM'; // Default to PM for college classes
+          }
         }
       }
       
@@ -255,6 +269,20 @@ function formatEndTimeForGoogle(dateString: string, timeString?: string): string
           endPeriod = 'PM';
         } else if (fullTimeString.includes('am')) {
           endPeriod = 'AM';
+        } else {
+          // No explicit AM/PM found anywhere, use academic heuristics
+          const startHour = parseInt(timeMatch[1].trim().split(':')[0]);
+          const endHour = parseInt(endTimeStr.split(':')[0]);
+          
+          // For academic time ranges, infer periods
+          if (endHour >= 1 && endHour <= 7) {
+            endPeriod = 'PM'; // Likely afternoon/evening
+          } else if (startHour > endHour) {
+            // If start > end, likely crossing periods (11 AM - 2 PM)
+            endPeriod = 'PM';
+          } else {
+            endPeriod = 'PM'; // Default to PM for college classes
+          }
         }
       }
       
