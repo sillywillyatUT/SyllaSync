@@ -172,10 +172,13 @@ function adjustOverlappingTimes(dates: ExtractedDate[]): ExtractedDate[] {
   return dates;
 }
 
-// UPDATED: Format datetime without timezone - let Google Calendar use user's default
-function formatDateTimeForGoogle(dateString: string, timeString?: string): string {
-  // Create date in YYYY-MM-DD format
-  const datePart = new Date(dateString).toISOString().split('T')[0];
+// UPDATED: Format datetime as floating time (timezone-independent)
+function formatDateTimeForGoogle(dateString: string, timeString?: string): any {
+  // Parse the date components directly without timezone interpretation
+  const dateParts = dateString.split('-');
+  const year = parseInt(dateParts[0]);
+  const month = parseInt(dateParts[1]);
+  const day = parseInt(dateParts[2]);
 
   if (timeString) {
     const timeRangeRegex = /([^–\-]+)[–\-]([^–\-]+)/;
@@ -215,38 +218,51 @@ function formatDateTimeForGoogle(dateString: string, timeString?: string): strin
           const startHour = parseInt(startTimeStr.split(':')[0]);
           const endHour = parseInt(endTimeStr.split(':')[0]);
           
-          // For academic time ranges without AM/PM, assume PM for afternoon times
-          if (startHour >= 1 && startHour <= 7 && endHour >= 1 && endHour <= 7) {
-            startPeriod = 'PM'; // Both likely PM (like 3:30-5:00)
-          } else if (startHour > endHour) {
-            // Crossing periods (like 11:00-2:00 likely means 11 AM - 2 PM)
-            startPeriod = 'AM';
+          // Academic scheduling heuristics:
+          // Times 1-7 without AM/PM in academic context are likely PM
+          // Times 8-11 without AM/PM could be AM or PM, but in college often PM
+          // Times 12 are likely PM (noon)
+          if (startHour >= 1 && startHour <= 7) {
+            startPeriod = 'PM';
+          } else if (startHour === 12) {
+            startPeriod = 'PM'; // Assume noon, not midnight
+          } else if (startHour >= 8 && startHour <= 11) {
+            // For 8-11, prefer PM for afternoon/evening classes
+            startPeriod = 'PM';
           } else {
-            startPeriod = 'PM'; // Default to PM for college classes
+            startPeriod = 'AM'; // Default for very early times
           }
         }
       }
       
       const { hours, minutes } = parseTime(startTimeStr, startPeriod);
       
-      // Format as YYYY-MM-DDTHH:MM:SS (local time, no timezone specified)
-      const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
-      return `${datePart}T${formattedTime}`;
+      // Return floating time format (no timezone specified)
+      return {
+        dateTime: `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`
+        // Deliberately omitting timeZone property creates floating time
+      };
     } else {
       // Single time
       const { hours, minutes } = parseTime(timeString);
-      const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
-      return `${datePart}T${formattedTime}`;
+      return {
+        dateTime: `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`
+      };
     }
   } else {
-    // All-day event - return just the date
-    return datePart;
+    // All-day event
+    return {
+      date: `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`
+    };
   }
 }
 
-// UPDATED: Format end time without timezone
-function formatEndTimeForGoogle(dateString: string, timeString?: string): string {
-  const datePart = new Date(dateString).toISOString().split('T')[0];
+// UPDATED: Format end time as floating time
+function formatEndTimeForGoogle(dateString: string, timeString?: string): any {
+  const dateParts = dateString.split('-');
+  const year = parseInt(dateParts[0]);
+  const month = parseInt(dateParts[1]);
+  const day = parseInt(dateParts[2]);
 
   if (timeString) {
     const timeRangeRegex = /([^–\-]+)[–\-]([^–\-]+)/;
@@ -287,20 +303,26 @@ function formatEndTimeForGoogle(dateString: string, timeString?: string): string
       }
       
       const { hours, minutes } = parseTime(endTimeStr, endPeriod);
-      const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
-      return `${datePart}T${formattedTime}`;
+      
+      // Return floating time format (no timezone specified)
+      return {
+        dateTime: `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`
+      };
     } else {
       // Single time - add 1 hour as default duration
       const { hours, minutes } = parseTime(timeString);
       const endHours = (hours + 1) % 24;
-      const formattedTime = `${endHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
-      return `${datePart}T${formattedTime}`;
+      
+      return {
+        dateTime: `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}T${endHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`
+      };
     }
   } else {
     // All-day event - end date is next day
-    const nextDay = new Date(dateString);
-    nextDay.setDate(nextDay.getDate() + 1);
-    return nextDay.toISOString().split('T')[0];
+    const nextDayDate = new Date(year, month - 1, day + 1); // month - 1 because Date constructor expects 0-indexed month
+    return {
+      date: `${nextDayDate.getFullYear()}-${(nextDayDate.getMonth() + 1).toString().padStart(2, '0')}-${nextDayDate.getDate().toString().padStart(2, '0')}`
+    };
   }
 }
 
@@ -518,41 +540,13 @@ async function handleRequest(body: string) {
           baseDate.setDate(baseDate.getDate() + 7);
           const baseDateString = baseDate.toISOString().split('T')[0];
 
-          if (hasTime) {
-            eventData.start = {
-              dateTime: formatDateTimeForGoogle(baseDateString, dateItem.time),
-              // Don't specify timeZone - let Google Calendar use user's default
-            };
-            eventData.end = {
-              dateTime: formatEndTimeForGoogle(baseDateString, dateItem.time),
-              // Don't specify timeZone - let Google Calendar use user's default
-            };
-          } else {
-            eventData.start = {
-              date: formatDateTimeForGoogle(baseDateString),
-            };
-            eventData.end = {
-              date: formatEndTimeForGoogle(baseDateString),
-            };
-          }
+          // Use floating time for recurring events
+          eventData.start = formatDateTimeForGoogle(baseDateString, dateItem.time);
+          eventData.end = formatEndTimeForGoogle(baseDateString, dateItem.time);
         } else if (dateItem.date) {
-          if (hasTime) {
-            eventData.start = {
-              dateTime: formatDateTimeForGoogle(dateItem.date, dateItem.time),
-              // Don't specify timeZone - let Google Calendar use user's default
-            };
-            eventData.end = {
-              dateTime: formatEndTimeForGoogle(dateItem.date, dateItem.time),
-              // Don't specify timeZone - let Google Calendar use user's default
-            };
-          } else {
-            eventData.start = {
-              date: formatDateTimeForGoogle(dateItem.date),
-            };
-            eventData.end = {
-              date: formatEndTimeForGoogle(dateItem.date),
-            };
-          }
+          // Use floating time for one-time events
+          eventData.start = formatDateTimeForGoogle(dateItem.date, dateItem.time);
+          eventData.end = formatEndTimeForGoogle(dateItem.date, dateItem.time);
         }
 
         const response = await calendar.events.insert({
