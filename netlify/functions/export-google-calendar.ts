@@ -51,49 +51,52 @@ async function validateAndRefreshToken(accessToken: string, refreshToken?: strin
   }
 }
 
-// Enhanced time parsing function with better range handling
-function parseTimeString(timeStr: string): { hours: number; minutes: number } {
+// Improved time parsing with better validation and fallbacks
+function parseTimeString(timeStr: string): { hours: number; minutes: number; isValid: boolean } {
   if (!timeStr || timeStr.trim() === '') {
     console.warn('Empty time string provided');
-    return { hours: 0, minutes: 0 };
+    return { hours: 9, minutes: 0, isValid: false }; // Default to 9 AM
   }
 
   const cleanTime = timeStr.trim().toLowerCase();
   console.log('Parsing individual time:', cleanTime);
   
-  // Extract AM/PM indicator
-  let period = '';
-  let time = cleanTime;
-  
-  if (cleanTime.includes('am')) {
-    period = 'AM';
-    time = cleanTime.replace(/\s*am\s*/, '').trim();
-  } else if (cleanTime.includes('pm')) {
-    period = 'PM';
-    time = cleanTime.replace(/\s*pm\s*/, '').trim();
+  // Handle special cases first
+  if (cleanTime === 'noon') {
+    return { hours: 12, minutes: 0, isValid: true };
+  }
+  if (cleanTime === 'midnight') {
+    return { hours: 0, minutes: 0, isValid: true };
   }
   
-  // Handle special cases
-  if (time === 'noon' || time === '12:00') {
-    return { hours: 12, minutes: 0 };
-  }
-  if (time === 'midnight' || (time === '12:00' && period === 'AM')) {
-    return { hours: 0, minutes: 0 };
+  // Extract AM/PM indicator with better regex
+  const amPmMatch = cleanTime.match(/\b(am|pm)\b/);
+  const period = amPmMatch ? amPmMatch[1].toUpperCase() : '';
+  
+  // Remove AM/PM from time string
+  const timeOnly = cleanTime.replace(/\s*(am|pm)\s*/g, '').trim();
+  
+  // Parse time components with validation
+  const timePattern = /^(\d{1,2})(?::(\d{2}))?$/;
+  const timeMatch = timeOnly.match(timePattern);
+  
+  if (!timeMatch) {
+    console.warn('Invalid time format:', timeStr);
+    return { hours: 9, minutes: 0, isValid: false }; // Default fallback
   }
   
-  // Parse hours and minutes
-  const timeParts = time.split(':');
-  let hours = parseInt(timeParts[0]);
-  const minutes = parseInt(timeParts[1]) || 0;
+  let hours = parseInt(timeMatch[1]);
+  const minutes = parseInt(timeMatch[2]) || 0;
   
+  // Validate components
   if (isNaN(hours) || hours < 1 || hours > 12) {
     console.warn('Invalid hours in time string:', timeStr);
-    return { hours: 0, minutes: 0 };
+    return { hours: 9, minutes: 0, isValid: false };
   }
   
   if (isNaN(minutes) || minutes < 0 || minutes > 59) {
     console.warn('Invalid minutes in time string:', timeStr);
-    return { hours, minutes: 0 };
+    return { hours: 9, minutes: 0, isValid: false };
   }
   
   // Convert to 24-hour format
@@ -102,36 +105,51 @@ function parseTimeString(timeStr: string): { hours: number; minutes: number } {
   } else if (period === 'AM' && hours === 12) {
     hours = 0;
   } else if (!period) {
-    // No explicit AM/PM - use academic heuristics
+    // No explicit AM/PM - use safer defaults
+    // If hour is 1-7, it's likely PM for academic schedules
+    // If hour is 8-11, it's likely AM
+    // 12 stays as is (noon)
     if (hours >= 1 && hours <= 7) {
-      hours += 12; // Assume PM for 1-7
-    } else if (hours === 12) {
-      // Keep as 12 (noon)
+      hours += 12; // Assume PM
     }
-    // 8-11 stay as AM
+    // 8-12 stay as is (8-11 AM, 12 noon)
   }
   
-  console.log(`Parsed time: ${timeStr} -> ${hours}:${minutes}`);
-  return { hours, minutes };
+  // Final validation
+  if (hours < 0 || hours > 23) {
+    console.warn('Hours out of range after conversion:', hours);
+    return { hours: 9, minutes: 0, isValid: false };
+  }
+  
+  console.log(`Parsed time: ${timeStr} -> ${hours}:${minutes.toString().padStart(2, '0')}`);
+  return { hours, minutes, isValid: true };
 }
 
-// Enhanced time range parsing
-function parseTimeRange(timeStr: string): { start: { hours: number; minutes: number }, end: { hours: number; minutes: number } } {
+// Robust time range parsing with comprehensive pattern matching
+function parseTimeRange(timeStr: string): { 
+  start: { hours: number; minutes: number }, 
+  end: { hours: number; minutes: number },
+  isValid: boolean 
+} {
   if (!timeStr || timeStr.trim() === '') {
     return { 
-      start: { hours: 0, minutes: 0 }, 
-      end: { hours: 1, minutes: 0 } 
+      start: { hours: 9, minutes: 0 }, 
+      end: { hours: 10, minutes: 0 },
+      isValid: false
     };
   }
 
   const cleanTime = timeStr.trim().toLowerCase();
   console.log('Parsing time range:', cleanTime);
   
-  // More comprehensive regex for time ranges
+  // Comprehensive regex patterns for time ranges
   const timeRangePatterns = [
-    /([^–\-\u2013\u2014]+)[–\-\u2013\u2014]([^–\-\u2013\u2014]+)/,  // Various dash types
-    /from\s+([^to]+)\s+to\s+(.+)/i,  // "from X to Y" format
-    /([^-]+)-([^-]+)/,  // Simple hyphen
+    // Handle "from X to Y" format
+    /from\s+([^to]+?)\s+to\s+(.+)/i,
+    // Handle various dash types (em dash, en dash, hyphen)
+    /([^–\-\u2013\u2014\u2015]+?)\s*[–\-\u2013\u2014\u2015]\s*(.+)/,
+    // Handle "X - Y" with spaces
+    /([^-]+?)\s*-\s*(.+)/,
   ];
   
   let startStr = '';
@@ -141,106 +159,131 @@ function parseTimeRange(timeStr: string): { start: { hours: number; minutes: num
   // Try each pattern
   for (const pattern of timeRangePatterns) {
     const match = cleanTime.match(pattern);
-    if (match) {
+    if (match && match[1] && match[2]) {
       startStr = match[1].trim();
       endStr = match[2].trim();
       rangeFound = true;
+      console.log('Range match found:', { startStr, endStr });
       break;
     }
   }
   
   if (!rangeFound) {
-    // Single time - add 1 hour duration
+    // Single time - parse and add 1 hour duration
     const singleTime = parseTimeString(timeStr);
+    const endHours = (singleTime.hours + 1) % 24;
     return {
-      start: singleTime,
-      end: { 
-        hours: (singleTime.hours + 1) % 24, 
-        minutes: singleTime.minutes 
-      }
+      start: { hours: singleTime.hours, minutes: singleTime.minutes },
+      end: { hours: endHours, minutes: singleTime.minutes },
+      isValid: singleTime.isValid
     };
   }
   
-  // Handle AM/PM logic for ranges
-  let startPeriod = '';
-  let endPeriod = '';
+  // Smart AM/PM handling for ranges
+  let finalStartStr = startStr;
+  let finalEndStr = endStr;
   
-  // Extract explicit AM/PM from each part
-  if (startStr.includes('am')) {
-    startPeriod = 'AM';
-  } else if (startStr.includes('pm')) {
-    startPeriod = 'PM';
-  }
+  // Check if either part has explicit AM/PM
+  const startHasAmPm = /\b(am|pm)\b/i.test(startStr);
+  const endHasAmPm = /\b(am|pm)\b/i.test(endStr);
   
-  if (endStr.includes('am')) {
-    endPeriod = 'AM';
-  } else if (endStr.includes('pm')) {
-    endPeriod = 'PM';
-  }
-  
-  // Smart period inference for ranges
-  if (!startPeriod && !endPeriod) {
-    // No periods specified - use academic logic
-    const fullText = cleanTime;
+  if (!startHasAmPm && endHasAmPm) {
+    // Only end has AM/PM - infer start period
+    const endPeriod = endStr.match(/\b(am|pm)\b/i)?.[1].toLowerCase();
     const startHour = parseInt(startStr.split(':')[0]);
     const endHour = parseInt(endStr.split(':')[0]);
     
-    if (startHour >= 1 && startHour <= 7 && endHour >= 1 && endHour <= 7) {
-      // Both in PM range for academics
-      startPeriod = 'PM';
-      endPeriod = 'PM';
+    if (endPeriod === 'pm') {
+      if (startHour > endHour) {
+        // Likely AM to PM transition (e.g., "11:00 - 1:00 PM")
+        finalStartStr = startStr + ' am';
+      } else {
+        // Both PM (e.g., "1:00 - 3:00 PM")
+        finalStartStr = startStr + ' pm';
+      }
+    } else {
+      // End is AM
+      if (startHour > endHour) {
+        // This is unusual but possible (e.g., overnight shift)
+        finalStartStr = startStr + ' pm';
+      } else {
+        // Both AM
+        finalStartStr = startStr + ' am';
+      }
+    }
+  } else if (startHasAmPm && !endHasAmPm) {
+    // Only start has AM/PM - infer end period
+    const startPeriod = startStr.match(/\b(am|pm)\b/i)?.[1].toLowerCase();
+    const startHour = parseInt(startStr.split(':')[0]);
+    const endHour = parseInt(endStr.split(':')[0]);
+    
+    if (startPeriod === 'am') {
+      if (startHour > endHour) {
+        // AM to PM transition
+        finalEndStr = endStr + ' pm';
+      } else {
+        // Both AM
+        finalEndStr = endStr + ' am';
+      }
+    } else {
+      // Start is PM
+      if (startHour > endHour) {
+        // This could be PM to next day AM, but more likely both PM
+        finalEndStr = endStr + ' pm';
+      } else {
+        // Both PM
+        finalEndStr = endStr + ' pm';
+      }
+    }
+  } else if (!startHasAmPm && !endHasAmPm) {
+    // Neither has AM/PM - use logical defaults
+    const startHour = parseInt(startStr.split(':')[0]);
+    const endHour = parseInt(endStr.split(':')[0]);
+    
+    // If start > end, it's likely AM to PM
+    if (startHour > endHour && startHour <= 12 && endHour <= 12) {
+      finalStartStr = startStr + ' am';
+      finalEndStr = endStr + ' pm';
+    } else if (startHour >= 1 && startHour <= 7 && endHour >= 1 && endHour <= 7) {
+      // Both in typical afternoon class times
+      finalStartStr = startStr + ' pm';
+      finalEndStr = endStr + ' pm';
     } else if (startHour >= 8 && startHour <= 11 && endHour >= 8 && endHour <= 11) {
-      // Both likely AM
-      startPeriod = 'AM';
-      endPeriod = 'AM';
-    } else if (startHour > endHour) {
-      // Crossing AM/PM boundary
-      startPeriod = 'AM';
-      endPeriod = 'PM';
+      // Both in morning class times
+      finalStartStr = startStr + ' am';
+      finalEndStr = endStr + ' am';
     } else {
-      // Default to PM for academic times
-      startPeriod = 'PM';
-      endPeriod = 'PM';
-    }
-  } else if (!startPeriod && endPeriod) {
-    // Only end period specified
-    if (endPeriod === 'PM') {
-      const startHour = parseInt(startStr.split(':')[0]);
-      const endHour = parseInt(endStr.split(':')[0]);
-      
-      if (startHour > endHour) {
-        startPeriod = 'AM';  // AM to PM crossing
-      } else {
-        startPeriod = 'PM';  // Both PM
-      }
-    } else {
-      startPeriod = 'AM';  // Both AM
-    }
-  } else if (startPeriod && !endPeriod) {
-    // Only start period specified
-    if (startPeriod === 'AM') {
-      const startHour = parseInt(startStr.split(':')[0]);
-      const endHour = parseInt(endStr.split(':')[0]);
-      
-      if (startHour > endHour) {
-        endPeriod = 'PM';  // AM to PM crossing
-      } else {
-        endPeriod = 'AM';  // Both AM
-      }
-    } else {
-      endPeriod = 'PM';  // Both PM
+      // Default to PM for academic schedules
+      finalStartStr = startStr + ' pm';
+      finalEndStr = endStr + ' pm';
     }
   }
   
-  // Parse start and end times with determined periods
-  const startTime = parseTimeString(startStr + ' ' + startPeriod);
-  const endTime = parseTimeString(endStr + ' ' + endPeriod);
+  // Parse both times
+  const startTime = parseTimeString(finalStartStr);
+  const endTime = parseTimeString(finalEndStr);
+  
+  // Validation: ensure end time is after start time
+  const startMinutes = startTime.hours * 60 + startTime.minutes;
+  const endMinutes = endTime.hours * 60 + endTime.minutes;
+  
+  if (endMinutes <= startMinutes) {
+    console.warn('End time is not after start time, adjusting');
+    // Add 1 hour to start time for end time
+    const adjustedEndHours = (startTime.hours + 1) % 24;
+    return {
+      start: { hours: startTime.hours, minutes: startTime.minutes },
+      end: { hours: adjustedEndHours, minutes: startTime.minutes },
+      isValid: startTime.isValid
+    };
+  }
   
   console.log(`Parsed range: ${timeStr} -> ${startTime.hours}:${startTime.minutes} to ${endTime.hours}:${endTime.minutes}`);
   
   return {
-    start: startTime,
-    end: endTime
+    start: { hours: startTime.hours, minutes: startTime.minutes },
+    end: { hours: endTime.hours, minutes: endTime.minutes },
+    isValid: startTime.isValid && endTime.isValid
   };
 }
 
@@ -313,70 +356,104 @@ function isValidDate(dateString: string): boolean {
   return date instanceof Date && !isNaN(date.getTime());
 }
 
-// Fixed datetime formatting with proper time range handling
-function formatDateTimeForGoogle(dateString: string, timeString?: string): string {
+// Improved datetime formatting with better error handling
+function formatDateTimeForGoogle(dateString: string, timeString?: string): { 
+  datetime: string, 
+  isValid: boolean, 
+  error?: string 
+} {
   console.log('Formatting datetime:', { dateString, timeString });
   
   if (!isValidDate(dateString)) {
-    console.error('Invalid date string:', dateString);
-    throw new Error(`Invalid date: ${dateString}`);
+    const error = `Invalid date: ${dateString}`;
+    console.error(error);
+    return { datetime: '', isValid: false, error };
   }
   
   const datePart = new Date(dateString).toISOString().split('T')[0];
 
   if (timeString && timeString.trim()) {
     const timeRange = parseTimeRange(timeString);
+    
+    if (!timeRange.isValid) {
+      console.warn('Invalid time parsed, using default 9:00 AM');
+    }
+    
     const { hours, minutes } = timeRange.start;
     
-    // Validate parsed time
+    // Validate parsed time (should be valid from parseTimeRange but double-check)
     if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
-      console.error('Invalid parsed start time:', { hours, minutes });
-      throw new Error(`Invalid start time values: ${hours}:${minutes}`);
+      const error = `Invalid time values after parsing: ${hours}:${minutes}`;
+      console.error(error);
+      // Return a fallback time instead of failing
+      const fallbackTime = `${datePart}T09:00:00`;
+      console.log('Using fallback datetime:', fallbackTime);
+      return { datetime: fallbackTime, isValid: false, error };
     }
     
     const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
     const result = `${datePart}T${formattedTime}`;
     console.log('Formatted start datetime:', result);
-    return result;
+    return { datetime: result, isValid: timeRange.isValid };
   } else {
     // All-day event
     console.log('All-day event date:', datePart);
-    return datePart;
+    return { datetime: datePart, isValid: true };
   }
 }
 
-// Fixed end time formatting
-function formatEndTimeForGoogle(dateString: string, timeString?: string): string {
+// Improved end time formatting with better error handling
+function formatEndTimeForGoogle(dateString: string, timeString?: string): { 
+  datetime: string, 
+  isValid: boolean, 
+  error?: string 
+} {
   console.log('Formatting end time:', { dateString, timeString });
   
   if (!isValidDate(dateString)) {
-    console.error('Invalid date string:', dateString);
-    throw new Error(`Invalid date: ${dateString}`);
+    const error = `Invalid date: ${dateString}`;
+    console.error(error);
+    return { datetime: '', isValid: false, error };
   }
   
   const datePart = new Date(dateString).toISOString().split('T')[0];
 
   if (timeString && timeString.trim()) {
     const timeRange = parseTimeRange(timeString);
+    
+    if (!timeRange.isValid) {
+      console.warn('Invalid time parsed for end time, using default duration');
+    }
+    
     const { hours, minutes } = timeRange.end;
     
     // Validate parsed time
     if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
-      console.error('Invalid parsed end time:', { hours, minutes });
-      throw new Error(`Invalid end time values: ${hours}:${minutes}`);
+      const error = `Invalid end time values: ${hours}:${minutes}`;
+      console.error(error);
+      // Return fallback: start time + 1 hour
+      const startResult = formatDateTimeForGoogle(dateString, timeString);
+      if (startResult.isValid && startResult.datetime.includes('T')) {
+        const startTime = new Date(startResult.datetime);
+        startTime.setHours(startTime.getHours() + 1);
+        const fallbackEnd = startTime.toISOString().split('.')[0];
+        console.log('Using fallback end datetime:', fallbackEnd);
+        return { datetime: fallbackEnd, isValid: false, error };
+      }
+      return { datetime: '', isValid: false, error };
     }
     
     const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
     const result = `${datePart}T${formattedTime}`;
     console.log('Formatted end datetime:', result);
-    return result;
+    return { datetime: result, isValid: timeRange.isValid };
   } else {
     // All-day event - end date is next day
     const nextDay = new Date(dateString);
     nextDay.setDate(nextDay.getDate() + 1);
     const result = nextDay.toISOString().split('T')[0];
     console.log('All-day event end date:', result);
-    return result;
+    return { datetime: result, isValid: true };
   }
 }
 
@@ -559,6 +636,7 @@ async function handleRequest(body: string) {
 
     const createdEvents: any[] = [];
     const errors: any[] = [];
+    const warnings: any[] = [];
 
     for (const dateItem of adjustedDates) {
       try {
@@ -600,53 +678,61 @@ async function handleRequest(body: string) {
           const baseDateString = baseDate.toISOString().split('T')[0];
 
           if (hasTime) {
-            try {
-              eventData.start = {
-                dateTime: formatDateTimeForGoogle(baseDateString, dateItem.time),
-              };
-              eventData.end = {
-                dateTime: formatEndTimeForGoogle(baseDateString, dateItem.time),
-              };
-            } catch (timeError) {
-              console.error('Error formatting recurring event time:', timeError);
+            const startResult = formatDateTimeForGoogle(baseDateString, dateItem.time);
+            const endResult = formatEndTimeForGoogle(baseDateString, dateItem.time);
+            
+            if (!startResult.isValid || !endResult.isValid) {
+              warnings.push({
+                event: dateItem.title,
+                warning: `Time parsing issues detected. Using fallback times.`
+              });
+            }
+            
+            if (startResult.error || endResult.error) {
               errors.push({ 
                 event: dateItem.title, 
-                error: `Time formatting error: ${timeError instanceof Error ? timeError.message : 'Unknown error'}` 
+                error: `Time formatting error: ${startResult.error || endResult.error}` 
               });
               continue;
             }
+            
+            eventData.start = { dateTime: startResult.datetime };
+            eventData.end = { dateTime: endResult.datetime };
           } else {
-            eventData.start = {
-              date: formatDateTimeForGoogle(baseDateString),
-            };
-            eventData.end = {
-              date: formatEndTimeForGoogle(baseDateString),
-            };
+            const startResult = formatDateTimeForGoogle(baseDateString);
+            const endResult = formatEndTimeForGoogle(baseDateString);
+            
+            eventData.start = { date: startResult.datetime };
+            eventData.end = { date: endResult.datetime };
           }
         } else if (dateItem.date) {
           if (hasTime) {
-            try {
-              eventData.start = {
-                dateTime: formatDateTimeForGoogle(dateItem.date, dateItem.time),
-              };
-              eventData.end = {
-                dateTime: formatEndTimeForGoogle(dateItem.date, dateItem.time),
-              };
-            } catch (timeError) {
-              console.error('Error formatting event time:', timeError);
+            const startResult = formatDateTimeForGoogle(dateItem.date, dateItem.time);
+            const endResult = formatEndTimeForGoogle(dateItem.date, dateItem.time);
+            
+            if (!startResult.isValid || !endResult.isValid) {
+              warnings.push({
+                event: dateItem.title,
+                warning: `Time parsing issues detected. Event created with best-guess times.`
+              });
+            }
+            
+            if (startResult.error || endResult.error) {
               errors.push({ 
                 event: dateItem.title, 
-                error: `Time formatting error: ${timeError instanceof Error ? timeError.message : 'Unknown error'}` 
+                error: `Time formatting error: ${startResult.error || endResult.error}` 
               });
               continue;
             }
+            
+            eventData.start = { dateTime: startResult.datetime };
+            eventData.end = { dateTime: endResult.datetime };
           } else {
-            eventData.start = {
-              date: formatDateTimeForGoogle(dateItem.date),
-            };
-            eventData.end = {
-              date: formatEndTimeForGoogle(dateItem.date),
-            };
+            const startResult = formatDateTimeForGoogle(dateItem.date);
+            const endResult = formatEndTimeForGoogle(dateItem.date);
+            
+            eventData.start = { date: startResult.datetime };
+            eventData.end = { date: endResult.datetime };
           }
         }
 
@@ -687,6 +773,7 @@ async function handleRequest(body: string) {
       success: true,
       createdEvents,
       errors,
+      warnings,
       newAccessToken: tokenResult.token !== accessToken ? tokenResult.token : undefined,
       newRefreshToken: tokenResult.newRefreshToken,
       adjustmentsMade: adjustedDates.some(d => d.time !== dates.find(orig => orig.id === d.id)?.time),
@@ -694,6 +781,7 @@ async function handleRequest(body: string) {
         totalEvents: dates.length,
         successful: createdEvents.length,
         failed: errors.length,
+        warnings: warnings.length,
       },
     };
 
