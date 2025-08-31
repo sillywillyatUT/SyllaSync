@@ -232,10 +232,23 @@ function validateDate(dateStr: string): string {
   if (!dateStr || dateStr.trim() === '') return '';
   
   try {
+    // Try to parse as YYYY-MM-DD first
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      const [year, month, day] = dateStr.split('-').map(Number);
+      
+      // Validate components and create test date
+      const testDate = new Date(year, month - 1, day);
+      if (testDate.getFullYear() === year && 
+          testDate.getMonth() === month - 1 && 
+          testDate.getDate() === day) {
+        return dateStr; // Return original if valid
+      }
+    }
+    
+    // Fallback for other date formats
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) return '';
     
-    // Return in YYYY-MM-DD format for consistency
     const year = date.getFullYear();
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const day = date.getDate().toString().padStart(2, '0');
