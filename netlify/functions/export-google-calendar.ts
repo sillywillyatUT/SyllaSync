@@ -51,9 +51,15 @@ async function validateAndRefreshToken(accessToken: string, refreshToken?: strin
   }
 }
 
-// Improved time parsing function
+// Improved time parsing function with better validation
 function parseTime(timeStr: string, fallbackPeriod?: string): { hours: number; minutes: number } {
+  if (!timeStr || timeStr.trim() === '') {
+    console.warn('Empty time string provided');
+    return { hours: 0, minutes: 0 };
+  }
+
   const cleanTime = timeStr.trim().toLowerCase();
+  console.log('Parsing time:', cleanTime);
   
   // Extract time and period more carefully
   let time = '';
@@ -75,27 +81,38 @@ function parseTime(timeStr: string, fallbackPeriod?: string): { hours: number; m
     if (!period) {
       const hourNum = parseInt(time.split(':')[0]);
       
+      if (isNaN(hourNum)) {
+        console.warn('Invalid hour in time string:', timeStr);
+        return { hours: 0, minutes: 0 };
+      }
+      
       // Academic scheduling heuristics:
-      // Times 1-7 without AM/PM in academic context are likely PM
-      // Times 8-11 without AM/PM could be AM or PM, but in college often PM
-      // Times 12 are likely PM (noon)
       if (hourNum >= 1 && hourNum <= 7) {
         period = 'PM';
       } else if (hourNum === 12) {
         period = 'PM'; // Assume noon, not midnight
       } else if (hourNum >= 8 && hourNum <= 11) {
-        // For 8-11, prefer PM for afternoon/evening classes
-        period = 'PM';
+        period = 'PM'; // For 8-11, prefer PM for afternoon/evening classes
       } else {
         period = 'AM'; // Default for very early times
       }
     }
   }
   
-  // Parse hours and minutes
+  // Parse hours and minutes with validation
   const timeParts = time.split(":");
   const hours = parseInt(timeParts[0]);
   const minutes = parseInt(timeParts[1]) || 0;
+  
+  if (isNaN(hours) || hours < 1 || hours > 12) {
+    console.warn('Invalid hours in time string:', timeStr);
+    return { hours: 0, minutes: 0 };
+  }
+  
+  if (isNaN(minutes) || minutes < 0 || minutes > 59) {
+    console.warn('Invalid minutes in time string:', timeStr);
+    return { hours, minutes: 0 };
+  }
   
   let hour24 = hours;
 
@@ -106,6 +123,7 @@ function parseTime(timeStr: string, fallbackPeriod?: string): { hours: number; m
     hour24 = 0;
   }
 
+  console.log(`Parsed time: ${timeStr} -> ${hour24}:${minutes} (${period})`);
   return { hours: hour24, minutes };
 }
 
@@ -172,12 +190,25 @@ function adjustOverlappingTimes(dates: ExtractedDate[]): ExtractedDate[] {
   return dates;
 }
 
-// UPDATED: Format datetime without timezone - let Google Calendar use user's default
+// FIXED: Better date validation and formatting
+function isValidDate(dateString: string): boolean {
+  const date = new Date(dateString);
+  return date instanceof Date && !isNaN(date.getTime());
+}
+
+// FIXED: Format datetime with proper validation and timezone handling
 function formatDateTimeForGoogle(dateString: string, timeString?: string): string {
+  console.log('Formatting datetime:', { dateString, timeString });
+  
+  if (!isValidDate(dateString)) {
+    console.error('Invalid date string:', dateString);
+    throw new Error(`Invalid date: ${dateString}`);
+  }
+  
   // Create date in YYYY-MM-DD format
   const datePart = new Date(dateString).toISOString().split('T')[0];
 
-  if (timeString) {
+  if (timeString && timeString.trim()) {
     const timeRangeRegex = /([^–\-]+)[–\-]([^–\-]+)/;
     const timeMatch = timeString.match(timeRangeRegex);
     
@@ -195,10 +226,7 @@ function formatDateTimeForGoogle(dateString: string, timeString?: string): strin
         startPeriod = 'PM';
       } else {
         // If end time has PM and no AM anywhere, assume start is PM too
-        // If end time has AM and no PM anywhere, assume start is AM too  
-        // Otherwise, be more careful about assumptions
         if (endTimeStr.toLowerCase().includes('pm') && !fullTimeString.includes('am')) {
-          // If it's a range like "10:30-3:30 PM", we need to be smart
           const startHour = parseInt(startTimeStr.split(':')[0]);
           const endHour = parseInt(endTimeStr.split(':')[0]);
           
@@ -211,44 +239,66 @@ function formatDateTimeForGoogle(dateString: string, timeString?: string): strin
         } else if (endTimeStr.toLowerCase().includes('am') && !fullTimeString.includes('pm')) {
           startPeriod = 'AM';
         } else {
-          // Fallback: No explicit AM/PM found anywhere, use academic heuristics
+          // Fallback: use academic heuristics
           const startHour = parseInt(startTimeStr.split(':')[0]);
           const endHour = parseInt(endTimeStr.split(':')[0]);
           
-          // For academic time ranges without AM/PM, assume PM for afternoon times
           if (startHour >= 1 && startHour <= 7 && endHour >= 1 && endHour <= 7) {
-            startPeriod = 'PM'; // Both likely PM (like 3:30-5:00)
+            startPeriod = 'PM';
           } else if (startHour > endHour) {
-            // Crossing periods (like 11:00-2:00 likely means 11 AM - 2 PM)
             startPeriod = 'AM';
           } else {
-            startPeriod = 'PM'; // Default to PM for college classes
+            startPeriod = 'PM';
           }
         }
       }
       
       const { hours, minutes } = parseTime(startTimeStr, startPeriod);
       
-      // Format as YYYY-MM-DDTHH:MM:SS (local time, no timezone specified)
+      // Validate parsed time
+      if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+        console.error('Invalid parsed time:', { hours, minutes });
+        throw new Error(`Invalid time values: ${hours}:${minutes}`);
+      }
+      
       const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
-      return `${datePart}T${formattedTime}`;
+      const result = `${datePart}T${formattedTime}`;
+      console.log('Formatted datetime result:', result);
+      return result;
     } else {
       // Single time
       const { hours, minutes } = parseTime(timeString);
+      
+      // Validate parsed time
+      if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+        console.error('Invalid parsed time:', { hours, minutes });
+        throw new Error(`Invalid time values: ${hours}:${minutes}`);
+      }
+      
       const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
-      return `${datePart}T${formattedTime}`;
+      const result = `${datePart}T${formattedTime}`;
+      console.log('Formatted datetime result:', result);
+      return result;
     }
   } else {
     // All-day event - return just the date
+    console.log('All-day event date:', datePart);
     return datePart;
   }
 }
 
-// UPDATED: Format end time without timezone
+// FIXED: Format end time with proper validation
 function formatEndTimeForGoogle(dateString: string, timeString?: string): string {
+  console.log('Formatting end time:', { dateString, timeString });
+  
+  if (!isValidDate(dateString)) {
+    console.error('Invalid date string:', dateString);
+    throw new Error(`Invalid date: ${dateString}`);
+  }
+  
   const datePart = new Date(dateString).toISOString().split('T')[0];
 
-  if (timeString) {
+  if (timeString && timeString.trim()) {
     const timeRangeRegex = /([^–\-]+)[–\-]([^–\-]+)/;
     const timeMatch = timeString.match(timeRangeRegex);
     
@@ -274,33 +324,51 @@ function formatEndTimeForGoogle(dateString: string, timeString?: string): string
           const startHour = parseInt(timeMatch[1].trim().split(':')[0]);
           const endHour = parseInt(endTimeStr.split(':')[0]);
           
-          // For academic time ranges, infer periods
           if (endHour >= 1 && endHour <= 7) {
-            endPeriod = 'PM'; // Likely afternoon/evening
+            endPeriod = 'PM';
           } else if (startHour > endHour) {
-            // If start > end, likely crossing periods (11 AM - 2 PM)
             endPeriod = 'PM';
           } else {
-            endPeriod = 'PM'; // Default to PM for college classes
+            endPeriod = 'PM';
           }
         }
       }
       
       const { hours, minutes } = parseTime(endTimeStr, endPeriod);
+      
+      // Validate parsed time
+      if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+        console.error('Invalid parsed end time:', { hours, minutes });
+        throw new Error(`Invalid end time values: ${hours}:${minutes}`);
+      }
+      
       const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
-      return `${datePart}T${formattedTime}`;
+      const result = `${datePart}T${formattedTime}`;
+      console.log('Formatted end time result:', result);
+      return result;
     } else {
       // Single time - add 1 hour as default duration
       const { hours, minutes } = parseTime(timeString);
+      
+      // Validate parsed time
+      if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+        console.error('Invalid parsed time for single event:', { hours, minutes });
+        throw new Error(`Invalid time values: ${hours}:${minutes}`);
+      }
+      
       const endHours = (hours + 1) % 24;
       const formattedTime = `${endHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
-      return `${datePart}T${formattedTime}`;
+      const result = `${datePart}T${formattedTime}`;
+      console.log('Formatted end time result (single):', result);
+      return result;
     }
   } else {
     // All-day event - end date is next day
     const nextDay = new Date(dateString);
     nextDay.setDate(nextDay.getDate() + 1);
-    return nextDay.toISOString().split('T')[0];
+    const result = nextDay.toISOString().split('T')[0];
+    console.log('All-day event end date:', result);
+    return result;
   }
 }
 
@@ -433,6 +501,8 @@ async function handleRequest(body: string) {
       colorId?: string;
     } = JSON.parse(body);
     
+    console.log('Received dates for export:', dates);
+    
     if (!dates || dates.length === 0) {
       return {
         statusCode: 400,
@@ -484,6 +554,8 @@ async function handleRequest(body: string) {
 
     for (const dateItem of adjustedDates) {
       try {
+        console.log('Processing event:', dateItem);
+        
         if (!dateItem.date && !dateItem.recurrence) {
           errors.push({ 
             event: dateItem.title, 
@@ -493,6 +565,7 @@ async function handleRequest(body: string) {
         }
 
         const hasTime = dateItem.time && dateItem.time.trim() !== "";
+        console.log('Event has time:', hasTime, 'Time value:', dateItem.time);
 
         let eventData: any = {
           summary: dateItem.title,
@@ -519,14 +592,21 @@ async function handleRequest(body: string) {
           const baseDateString = baseDate.toISOString().split('T')[0];
 
           if (hasTime) {
-            eventData.start = {
-              dateTime: formatDateTimeForGoogle(baseDateString, dateItem.time),
-              // Don't specify timeZone - let Google Calendar use user's default
-            };
-            eventData.end = {
-              dateTime: formatEndTimeForGoogle(baseDateString, dateItem.time),
-              // Don't specify timeZone - let Google Calendar use user's default
-            };
+            try {
+              eventData.start = {
+                dateTime: formatDateTimeForGoogle(baseDateString, dateItem.time),
+              };
+              eventData.end = {
+                dateTime: formatEndTimeForGoogle(baseDateString, dateItem.time),
+              };
+            } catch (timeError) {
+              console.error('Error formatting recurring event time:', timeError);
+              errors.push({ 
+                event: dateItem.title, 
+                error: `Time formatting error: ${timeError instanceof Error ? timeError.message : 'Unknown error'}` 
+              });
+              continue;
+            }
           } else {
             eventData.start = {
               date: formatDateTimeForGoogle(baseDateString),
@@ -537,14 +617,21 @@ async function handleRequest(body: string) {
           }
         } else if (dateItem.date) {
           if (hasTime) {
-            eventData.start = {
-              dateTime: formatDateTimeForGoogle(dateItem.date, dateItem.time),
-              // Don't specify timeZone - let Google Calendar use user's default
-            };
-            eventData.end = {
-              dateTime: formatEndTimeForGoogle(dateItem.date, dateItem.time),
-              // Don't specify timeZone - let Google Calendar use user's default
-            };
+            try {
+              eventData.start = {
+                dateTime: formatDateTimeForGoogle(dateItem.date, dateItem.time),
+              };
+              eventData.end = {
+                dateTime: formatEndTimeForGoogle(dateItem.date, dateItem.time),
+              };
+            } catch (timeError) {
+              console.error('Error formatting event time:', timeError);
+              errors.push({ 
+                event: dateItem.title, 
+                error: `Time formatting error: ${timeError instanceof Error ? timeError.message : 'Unknown error'}` 
+              });
+              continue;
+            }
           } else {
             eventData.start = {
               date: formatDateTimeForGoogle(dateItem.date),
@@ -554,6 +641,8 @@ async function handleRequest(body: string) {
             };
           }
         }
+
+        console.log('Event data to be sent to Google Calendar:', JSON.stringify(eventData, null, 2));
 
         const response = await calendar.events.insert({
           calendarId: 'primary',
@@ -579,6 +668,7 @@ async function handleRequest(body: string) {
         });
 
       } catch (eventError) {
+        console.error('Error creating calendar event:', eventError);
         errors.push({
           event: dateItem.title,
           error: eventError instanceof Error ? eventError.message : "Unknown error",
@@ -600,6 +690,7 @@ async function handleRequest(body: string) {
       },
     };
 
+    console.log('Final export result:', finalResult);
     return {
       statusCode: 200,
       body: JSON.stringify(finalResult)
