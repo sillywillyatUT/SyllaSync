@@ -34,55 +34,16 @@ function parseTime(timeStr: string, fallbackPeriod?: string): { hours: number; m
 }
 
 function formatDateForICS(dateString: string, timeString?: string): string {
-  const date = new Date(dateString);
-
+  // Parse date components directly to avoid timezone interpretation issues
+  const [year, month, day] = dateString.split('-').map(Number);
+  
   if (timeString) {
-    // Handle time ranges like "12:00 PM – 1:00 PM" or "12:00 PM - 1:00 PM" or "3:30 - 5:30 pm"
-    const timeRangeRegex = /([^–\-]+)[–\-]([^–\-]+)/;
-    const timeMatch = timeString.match(timeRangeRegex);
-    
-    if (timeMatch) {
-      // Time range found - extract AM/PM from the entire string first
-      const fullTimeString = timeString.toLowerCase();
-      const hasAM = fullTimeString.includes('am');
-      const hasPM = fullTimeString.includes('pm');
-      
-      const startTimeStr = timeMatch[1].trim();
-      const endTimeStr = timeMatch[2].trim();
-      
-      // Determine the period for start time
-      let startPeriod = '';
-      if (startTimeStr.toLowerCase().includes('am')) {
-        startPeriod = 'AM';
-      } else if (startTimeStr.toLowerCase().includes('pm')) {
-        startPeriod = 'PM';
-      } else {
-        // No explicit period in start time, use context
-        if (hasPM && !hasAM) {
-          startPeriod = 'PM'; // If only PM is mentioned, both times are likely PM
-        } else if (hasAM && !hasPM) {
-          startPeriod = 'AM'; // If only AM is mentioned, both times are likely AM
-        }
-      }
-      
-      const { hours, minutes } = parseTime(startTimeStr, startPeriod);
-      date.setHours(hours, minutes, 0, 0);
-    } else {
-      // Single time format
-      const { hours, minutes } = parseTime(timeString);
-      date.setHours(hours, minutes, 0, 0);
-    }
-  } else {
-    // If no time specified, make it an all-day event by setting to start of day
-    date.setHours(0, 0, 0, 0);
-  }
-
-  // Return in UTC format for timed events, date-only format for all-day events
-  if (timeString) {
+    // Create date in local timezone using direct components
+    const date = new Date(year, month - 1, day);
     return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
   } else {
-    // All-day event format (YYYYMMDD)
-    return date.toISOString().split("T")[0].replace(/-/g, "");
+    // All-day event format (YYYYMMDD) - use direct components
+    return `${year}${month.toString().padStart(2, '0')}${day.toString().padStart(2, '0')}`;
   }
 }
 

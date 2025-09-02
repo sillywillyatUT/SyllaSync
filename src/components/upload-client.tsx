@@ -546,185 +546,139 @@ export default function UploadClient() {
     setShowColorSelection(true);
   };
 
+  // ---- START OF CHANGES ----
+
   const proceedWithGoogleExport = async () => {
-  setShowColorSelection(false);
-  setIsExportingToGoogle(true);
+    setShowColorSelection(false);
+    setIsExportingToGoogle(true);
   
-  try {
-    const supabase = createClient();
+    try {
+      const supabase = createClient();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
-    // Check if user is authenticated
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
-    if (sessionError || !session) {
-      setExportMessage({
-        type: 'error',
-        text: 'Please sign in to export to Google Calendar.'
-      });
-      setIsExportingToGoogle(false);
-      return;
-    }
-
-    // Get user's stored tokens from database
-    const { data: userData } = await supabase
-      .from('users')
-      .select('google_access_token, google_refresh_token')
-      .eq('user_id', session.user.id)
-      .single();
-
-    // Try session token first, then database token
-    let accessToken = session.provider_token || userData?.google_access_token;
-    let refreshToken = userData?.google_refresh_token;
-
-    if (!accessToken) {
-      // No tokens available, need to authenticate
-      setExportMessage({
-        type: 'info',
-        text: 'Connecting to Google Calendar...'
-      });
-
-      const { error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          scopes: [
-            "https://www.googleapis.com/auth/calendar",
-            "https://www.googleapis.com/auth/calendar.events", 
-            "https://www.googleapis.com/auth/userinfo.email",
-            "https://www.googleapis.com/auth/userinfo.profile"
-          ].join(" "),
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-            include_granted_scopes: 'true'
-          },
-          redirectTo: `${window.location.origin}/auth/callback?redirect_to=${encodeURIComponent(window.location.pathname + '?export=google')}`,
-        },
-      });
-
-      if (oauthError) {
-        console.error("Error signing in with Google:", oauthError);
-        setExportMessage({
-          type: 'error',
-          text: 'Failed to connect to Google Calendar. Please try again.'
-        });
+      if (sessionError || !session) {
+        setExportMessage({ type: 'error', text: 'Please sign in to export to Google Calendar.' });
+        setIsExportingToGoogle(false);
+        return;
       }
-      setIsExportingToGoogle(false);
-      return;
-    }
 
-    // We have tokens, try to export
-    setExportMessage({
-      type: 'info',
-      text: 'Creating calendar events...'
-    });
-
-    const apiEndpoint = '/.netlify/functions/export-google-calendar';
-
-
-    const response = await fetch(apiEndpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        dates: extractedDates,
-        accessToken: accessToken,
-        refreshToken: refreshToken,
-        colorId: selectedColor,
-      }),
-    });
-
-    const result = await response.json();
-
-    // Handle token refresh if new tokens were returned
-    if (result.newAccessToken || result.newRefreshToken) {
-      const updateData: any = {};
-      if (result.newAccessToken) updateData.google_access_token = result.newAccessToken;
-      if (result.newRefreshToken) updateData.google_refresh_token = result.newRefreshToken;
-      
-      await supabase
+      const { data: userData } = await supabase
         .from('users')
-        .update(updateData)
-        .eq('user_id', session.user.id);
-    }
+        .select('google_access_token, google_refresh_token')
+        .eq('user_id', session.user.id)
+        .single();
 
-    if (result.authError) {
-      // All token refresh attempts failed, need re-authentication
-      setExportMessage({
-        type: 'info',
-        text: 'Google Calendar access expired. Reconnecting...'
-      });
+      let accessToken = session.provider_token || userData?.google_access_token;
+      let refreshToken = userData?.google_refresh_token;
 
-      const { error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          scopes: [
-            "https://www.googleapis.com/auth/calendar",
-            "https://www.googleapis.com/auth/calendar.events",
-            "https://www.googleapis.com/auth/userinfo.email", 
-            "https://www.googleapis.com/auth/userinfo.profile"
-          ].join(" "),
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-            include_granted_scopes: 'true'
+      if (!accessToken) {
+        setExportMessage({ type: 'info', text: 'Connecting to Google Calendar...' });
+
+        const { error: oauthError } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            scopes: "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile",
+            queryParams: {
+              access_type: 'offline',
+              prompt: 'consent',
+              include_granted_scopes: 'true'
+            },
+            redirectTo: `${window.location.origin}/auth/callback?redirect_to=${encodeURIComponent(window.location.pathname + '?export=google')}`,
           },
-          redirectTo: `${window.location.origin}/auth/callback?redirect_to=${encodeURIComponent(window.location.pathname + '?export=google')}`,
-        },
+        });
+
+        if (oauthError) {
+          console.error("Error signing in with Google:", oauthError);
+          setExportMessage({ type: 'error', text: 'Failed to connect to Google Calendar. Please try again.' });
+        }
+        setIsExportingToGoogle(false);
+        return;
+      }
+
+      setExportMessage({ type: 'info', text: 'Creating calendar events...' });
+
+      const apiEndpoint = '/.netlify/functions/export-google-calendar';
+
+      // FIX: Get the user's timezone from the browser
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+      const response = await fetch(apiEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dates: extractedDates,
+          accessToken: accessToken,
+          refreshToken: refreshToken,
+          colorId: selectedColor,
+          timezone: timezone, // FIX: Send the timezone to the backend
+        }),
       });
 
-      if (oauthError) {
-        console.error("Error re-authenticating with Google:", oauthError);
-        setExportMessage({
-          type: 'error',
-          text: 'Failed to reconnect to Google Calendar. Please try again.'
-        });
+      const result = await response.json();
+
+      if (result.newAccessToken || result.newRefreshToken) {
+        const updateData: any = {};
+        if (result.newAccessToken) updateData.google_access_token = result.newAccessToken;
+        if (result.newRefreshToken) updateData.google_refresh_token = result.newRefreshToken;
+        
+        await supabase.from('users').update(updateData).eq('user_id', session.user.id);
       }
-      setIsExportingToGoogle(false);
-      return;
-    }
 
-    if (result.success) {
-      const successCount = result.createdEvents?.length || 0;
-      const errorCount = result.errors?.length || 0;
+      if (result.authError) {
+        setExportMessage({ type: 'info', text: 'Google Calendar access expired. Reconnecting...' });
 
-      if (errorCount > 0) {
-        setExportMessage({
-          type: 'warning',
-          text: `Successfully created ${successCount} events in Google Calendar! ${errorCount} events failed to create.`,
-          action: {
-            text: 'View Calendar',
-            url: 'https://calendar.google.com'
-          }
+        const { error: oauthError } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            scopes: "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile",
+            queryParams: {
+              access_type: 'offline',
+              prompt: 'consent',
+              include_granted_scopes: 'true'
+            },
+            redirectTo: `${window.location.origin}/auth/callback?redirect_to=${encodeURIComponent(window.location.pathname + '?export=google')}`,
+          },
         });
+
+        if (oauthError) {
+          console.error("Error re-authenticating with Google:", oauthError);
+          setExportMessage({ type: 'error', text: 'Failed to reconnect to Google Calendar. Please try again.' });
+        }
+        setIsExportingToGoogle(false);
+        return;
+      }
+
+      if (result.success) {
+        const successCount = result.createdEvents?.length || 0;
+        const errorCount = result.errors?.length || 0;
+
+        if (errorCount > 0) {
+          setExportMessage({
+            type: 'warning',
+            text: `Successfully created ${successCount} events in Google Calendar! ${errorCount} events failed to create.`,
+            action: { text: 'View Calendar', url: 'https://calendar.google.com' }
+          });
+        } else {
+          setExportMessage({
+            type: 'success',
+            text: `Successfully created ${successCount} events in Google Calendar!`,
+            action: { text: 'View Calendar', url: 'https://calendar.google.com' }
+          });
+        }
       } else {
-        setExportMessage({
-          type: 'success',
-          text: `Successfully created ${successCount} events in Google Calendar!`,
-          action: {
-            text: 'View Calendar',
-            url: 'https://calendar.google.com'
-          }
-        });
+        setExportMessage({ type: 'error', text: result.error || 'Failed to create Google Calendar events.' });
       }
-    } else {
-      setExportMessage({
-        type: 'error',
-        text: result.error || 'Failed to create Google Calendar events.'
-      });
+    } catch (error) {
+      console.error("Error exporting to Google Calendar:", error);
+      setExportMessage({ type: 'error', text: 'Error exporting to Google Calendar. Please try again.' });
+    } finally {
+      setIsExportingToGoogle(false);
+      setTimeout(() => setExportMessage(null), 8000);
     }
-  } catch (error) {
-    console.error("Error exporting to Google Calendar:", error);
-    setExportMessage({
-      type: 'error',
-      text: 'Error exporting to Google Calendar. Please try again.'
-    });
-  } finally {
-    setIsExportingToGoogle(false);
-    setTimeout(() => setExportMessage(null), 8000);
-  }
-};
+  };
   
+  // ---- END OF CHANGES ----
+
   const downloadICSFile = async () => {
     try {
       console.log("Downloading ICS with className:", extractedClassName); // Debug log
@@ -746,7 +700,6 @@ export default function UploadClient() {
         const a = document.createElement("a");
         a.href = url;
         
-        // The filename will now be set by the server based on className
         const contentDisposition = response.headers.get('content-disposition');
         const filenameMatch = contentDisposition?.match(/filename="([^"]+)"/);
         const filename = filenameMatch ? filenameMatch[1] : "syllabus-calendar.ics";
@@ -813,11 +766,9 @@ export default function UploadClient() {
                         }}
                         disabledDate={(current, { from }) => {
                           if (!from) return false;
-                          // Disable dates that are before the start date
                           if (current && current.isBefore(from, "day")) {
                             return true;
                           }
-                          // Disable dates that are in the same month as the start date
                           if (current && current.isSame(from, "month")) {
                             return true;
                           }
@@ -1180,7 +1131,9 @@ export default function UploadClient() {
                   </div>
                   
                   {/* Export Message Component - Place it here before export buttons */}
-                  <ExportMessageComponent />
+                  <div className="mt-6">
+                    <ExportMessageComponent />
+                  </div>
                   
                     <div className="mt-6 flex gap-3">
                       <Button
