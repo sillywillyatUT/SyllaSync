@@ -297,7 +297,7 @@ npm test
 - Updated AI prompt to grab the class ID from the top of the syllabus
 - UI Fixes so the user knows what class has an assignment
 
-#### v1.1.0 (Latest) || 8-28-2025
+#### v1.1.0 || 8-28-2025
 - Fixed sign-in with Google errors not auto authenticating
 - Added export to Google Calendar functionality
 - Added color picker for Google Calendar events
