@@ -159,10 +159,13 @@ SyllaSync/
 
 ### Google Calendar Integration
 
-1. Create a Google Cloud Console project
-2. Enable the Google Calendar API
-3. Create OAuth 2.0 credentials
-4. Add authorized redirect URIs
+1.  Create a Google Cloud Console project.
+2.  Enable the **Google Calendar API**.
+3.  Create **OAuth 2.0 credentials** (for a Web application).
+4.  Add your redirect URIs under **Authorized redirect URIs**. You must add one for every environment you use.
+    -   **Production:** `https://your-site-name.netlify.app/auth/callback`
+    -   **Netlify Branch Deploys:** `https://main--your-site-name.netlify.app/auth/callback`
+    -   **Local Development:** `http://localhost:3000/auth/callback`
 
 ##  UI Components
 
@@ -272,6 +275,9 @@ npm test
 -  Optimized database queries
 -  Enhanced security measures
 -  Fixed naming issue in ics file generation and event naming
+-  Enhanced user authentication flow **to fix redirect and session handling issues**
+-  Improved PDF processing capabilities
+-  Added comprehensive error handling
 
 ### Changelog
 (P.S. I forgot to include the readme until later....)
@@ -295,6 +301,11 @@ npm test
 - Fixed sign-in with Google errors not auto authenticating
 - Added export to Google Calendar functionality
 - Added color picker for Google Calendar events
+
+#### v1.1.1 (Latest) || 9-2-2025
+-   Enhanced user authentication flow to fix redirect and session handling issues
+-   Improved PDF processing capabilities
+-   Added comprehensive error handling
 
 ##  Known Issues
 
