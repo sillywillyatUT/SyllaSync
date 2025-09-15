@@ -16,6 +16,7 @@ export default function GoogleAuthButton() {
     // It correctly handles session loading and state changes.
     const getUser = async () => {
       try {
+        //checks if user session already exists (so that if user revisits site, itll keep user signed in)
         const { data: { user } } = await supabase.auth.getUser();
         setUser(user);
       } catch (error) {
@@ -39,9 +40,8 @@ export default function GoogleAuthButton() {
     try {
       setIsLoading(true);
 
-      // ---- START OF FIX ----
       
-      const signInPath = '/sign-in'; // The path of your sign-in page
+      const signInPath = '/sign-in'; // The path of sign-in page
       const defaultRedirectPath = '/upload'; // Where to send users after they sign in from the sign-in page
 
       let redirectToPath = window.location.pathname + window.location.search;
@@ -54,7 +54,7 @@ export default function GoogleAuthButton() {
       
       const redirectUrl = `${window.location.origin}/auth/callback?redirect_to=${encodeURIComponent(redirectToPath)}`;
 
-      // ---- END OF FIX ----
+
       
       console.log(`[GOOGLE_AUTH] Final Redirect URL:`, redirectUrl);
 
@@ -89,7 +89,6 @@ export default function GoogleAuthButton() {
   };
 
   const handleSignOut = async () => {
-    // This function is correct and does not need changes.
     try {
       setIsLoading(true);
       await supabase.auth.signOut();
@@ -100,7 +99,6 @@ export default function GoogleAuthButton() {
     }
   };
 
-  // The rest of the component's return logic is correct and does not need changes.
   if (isSessionLoading) {
     return (
       <div className="flex items-center gap-2">
