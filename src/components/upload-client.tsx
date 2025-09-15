@@ -70,6 +70,7 @@ export default function UploadClient() {
   const [recurringClassOptions, setRecurringClassOptions] = useState<
     RecurringClassOption[]
   >([]);
+  //All selections for the google calendar event-dropdown
   const googleCalendarColors = [
   { id: "1", name: "Lavender", color: "bg-blue-100 border-blue-300" },
   { id: "2", name: "Sage", color: "bg-green-100 border-green-300" },
@@ -85,10 +86,12 @@ export default function UploadClient() {
 ];
   const [showRecurringSelection, setShowRecurringSelection] = useState(false);
   const [isExportingToGoogle, setIsExportingToGoogle] = useState(false);
+  // For the drop down picker
   const [semesterDateRange, setSemesterDateRange] = useState<[Dayjs, Dayjs]>([
     dayjs().month(7).date(15), // August 15th
     dayjs().add(1, "year").month(4).date(15), // May 15th next year
   ]);
+  //Names of the extracted dates, taken from the backend AI Processing
   const [extractedClassName, setExtractedClassName] = useState<string>("");
   const [showDatePickers, setShowDatePickers] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -158,6 +161,7 @@ export default function UploadClient() {
     setExtractedDates((prev) => prev.filter((event) => event.id !== id));
   };
 
+  //Resets all states (clean slate)
   const resetUpload = () => {
     setFiles([]);
     setExtractedDates([]);
@@ -169,19 +173,18 @@ export default function UploadClient() {
     setIsExportingToGoogle(false);
     setShowDatePickers(false);
     setSemesterDateRange([
-      dayjs().month(7).date(15), // August 15th
-      dayjs().add(1, "year").month(4).date(15), // May 15th next year
+      dayjs().month(7).date(15), 
+      dayjs().add(1, "year").month(4).date(15), 
     ]);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
-
+ // Checks if the user is authenticated with google, and wants go straight into export
   useEffect(() => {
-    // Check if user returned from Google auth with export intent
     const urlParams = new URLSearchParams(window.location.search);
     const shouldExport = urlParams.get('export');
-    
+    //checks if there is anything to export
     if (shouldExport === 'google' && extractedDates && extractedDates.length > 0) {
       // Remove the export parameter from URL
       const newUrl = new URL(window.location.href);
@@ -197,6 +200,7 @@ export default function UploadClient() {
 
   const acceptedFileTypes = [".pdf", "application/pdf"];
 
+  //Upload section drag and drop upload feature 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(true);
@@ -221,8 +225,9 @@ export default function UploadClient() {
     },
     [],
   );
-
+ //Recieves file from user
   const handleFiles = (newFiles: File[]) => {
+    //checks to see if it is of valid file type (for now, only pdf)
     const validFiles = newFiles.filter((file) => {
       const isValidType = acceptedFileTypes.some((type) =>
         type.startsWith(".")
@@ -232,7 +237,7 @@ export default function UploadClient() {
       const isValidSize = file.size <= 10 * 1024 * 1024; // 10MB limit
       return isValidType && isValidSize;
     });
-
+    //turns the file uploaded by user into a UploadedFiles Object
     const uploadedFiles: UploadedFile[] = validFiles.map((file) => ({
       file,
       id: Math.random().toString(36).substr(2, 9),
@@ -248,6 +253,7 @@ export default function UploadClient() {
     });
   };
 
+  // Makes it look like when the file is getting uploaded, there is a loading screen
   const simulateUpload = (fileId: string) => {
     const interval = setInterval(() => {
       setFiles((prev) =>
@@ -284,6 +290,7 @@ export default function UploadClient() {
     setFiles((prev) => prev.filter((file) => file.id !== fileId));
   };
 
+  //Sends uploaded files to the backend AI Processing
   const processFiles = async () => {
     setIsProcessing(true);
 
@@ -297,7 +304,7 @@ export default function UploadClient() {
       // Process each PDF file
       const allExtractedDates: ExtractedDate[] = [];
       let className = ""; // Store the className from processing
-
+      //sends the file and contents to the process-pdf (using formData)
       for (const uploadedFile of successfulFiles) {
         if (uploadedFile.file.type === "application/pdf") {
           const formData = new FormData();
@@ -311,12 +318,12 @@ export default function UploadClient() {
             );
             formData.append("semesterEnd", semesterDateRange[1].toISOString());
           }
-
+          //API Call to the backend where it processes it with AI
           const response = await fetch("/api/process-pdf", {
             method: "POST",
             body: formData,
           });
-
+          //Handles unexpected errors for API call
           const contentType = response.headers.get("content-type") || "";
           if (!response.ok || !contentType.includes("application/json")) {
             const text = await response.text();
@@ -364,7 +371,8 @@ export default function UploadClient() {
                 dateItem.recurrence &&
                 dateItem.sectionNumber,
             );
-
+            //if there are multiple reccuring events (different classes), this will show as a modal for better user experience 
+            // (currently not enough capacity to call this function)
             if (recurringClasses.length > 1) {
               const options = recurringClasses.map(
                 (classItem: ExtractedDate) => ({
@@ -378,7 +386,7 @@ export default function UploadClient() {
               setRecurringClassOptions(options);
               setShowRecurringSelection(true);
             }
-
+            //adds to the final array of extracted dates based on success of the current syllabi's validDates
             allExtractedDates.push(...validDates);
           }
         }
@@ -394,15 +402,16 @@ export default function UploadClient() {
       } = await supabase.auth.getUser();
 
       if (user && successfulFiles.length > 0) {
+        //identifying user
         const { data: currentProfile } = await supabase
           .from("users")
           .select("syllabi_processed")
           .eq("user_id", user.id)
           .single();
-
+        //checks current "syllabi processed" count. if it doesnt detect, then starts it at 0
         const currentCount = currentProfile?.syllabi_processed || 0;
+        //calculates new score, then updates the score via database query
         const newCount = currentCount + successfulFiles.length;
-
         await supabase
           .from("users")
           .update({ syllabi_processed: newCount })
@@ -416,7 +425,7 @@ export default function UploadClient() {
       console.error("Error processing files:", error);
       setIsProcessing(false);
 
-      // Show error to user (you might want to add a toast notification here)
+      // Show error to user 
       alert(
         `Error processing files: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
@@ -546,39 +555,44 @@ export default function UploadClient() {
     setShowColorSelection(true);
   };
 
-  // ---- START OF CHANGES ----
-
+  //for exporting to google calendar (makes requests to the google calendar API)
   const proceedWithGoogleExport = async () => {
     setShowColorSelection(false);
     setIsExportingToGoogle(true);
   
     try {
+      //checks to see if user is signed in, sending API call to supabase to get user's current session
       const supabase = createClient();
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
+      //sends error message if there is no session
       if (sessionError || !session) {
         setExportMessage({ type: 'error', text: 'Please sign in to export to Google Calendar.' });
         setIsExportingToGoogle(false);
         return;
       }
-
+      //checks if user already has the api tokens/permissions to access the user's calendar
       const { data: userData } = await supabase
         .from('users')
         .select('google_access_token, google_refresh_token')
         .eq('user_id', session.user.id)
         .single();
 
+      //finds access tokens. 'session.provider_token' if user just signed in w/ google (fresh token). 
+      // if not, goes to user's profile in supabase and gets the saved token from there
       let accessToken = session.provider_token || userData?.google_access_token;
       let refreshToken = userData?.google_refresh_token;
 
+      //if the user hasn't signed in with google before (user manually signed in, then tried exporting to gcal)
       if (!accessToken) {
         setExportMessage({ type: 'info', text: 'Connecting to Google Calendar...' });
-
+        //redirects user to google's sign-in page
         const { error: oauthError } = await supabase.auth.signInWithOAuth({
+          //requests access to scopes
           provider: "google",
           options: {
             scopes: "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile",
             queryParams: {
+              //Ask for offline access to get a refresh token, so that supabase can sync  with the user's calendar, even if the user closed the site (more secure)
               access_type: 'offline',
               prompt: 'consent',
               include_granted_scopes: 'true'
@@ -586,7 +600,7 @@ export default function UploadClient() {
             redirectTo: `${window.location.origin}/auth/callback?redirect_to=${encodeURIComponent(window.location.pathname + '?export=google')}`,
           },
         });
-
+        //breaks out of the exporting with google feature if failed to connect user's google account
         if (oauthError) {
           console.error("Error signing in with Google:", oauthError);
           setExportMessage({ type: 'error', text: 'Failed to connect to Google Calendar. Please try again.' });
@@ -597,11 +611,13 @@ export default function UploadClient() {
 
       setExportMessage({ type: 'info', text: 'Creating calendar events...' });
 
+
+      //backend serverless processing function
       const apiEndpoint = '/.netlify/functions/export-google-calendar';
 
       // FIX: Get the user's timezone from the browser
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
+      //sends the values that we got from the upload client and sends it to the netlify export-google-calendar
       const response = await fetch(apiEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -610,12 +626,12 @@ export default function UploadClient() {
           accessToken: accessToken,
           refreshToken: refreshToken,
           colorId: selectedColor,
-          timezone: timezone, // FIX: Send the timezone to the backend
+          timezone: timezone, 
         }),
       });
-
+      //retrieves outcome of the google calendar export feature
       const result = await response.json();
-
+      //check if we have any new keys from google
       if (result.newAccessToken || result.newRefreshToken) {
         const updateData: any = {};
         if (result.newAccessToken) updateData.google_access_token = result.newAccessToken;
@@ -676,8 +692,7 @@ export default function UploadClient() {
       setTimeout(() => setExportMessage(null), 8000);
     }
   };
-  
-  // ---- END OF CHANGES ----
+
 
   const downloadICSFile = async () => {
     try {
